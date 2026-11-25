@@ -58,9 +58,26 @@ function fbm(x: number, z: number): number {
   return valueNoise(x, z) * 0.7 + valueNoise(x * 2.3 + 17, z * 2.3 - 9) * 0.3;
 }
 
+/**
+ * 광장 테두리의 눈 둔덕: 광장에서 치워 낸 눈이 가장자리에 낮게 쌓인 띠 (11.25 사용자 요청)
+ * inner~outer 사이에서 봉긋 솟고, 둘레를 따라 높이가 들쭉날쭉합니다.
+ */
+export const PLAZA_RIM = { inner: PLAZA_RADIUS - 0.45, outer: PLAZA_RADIUS + 1.5, height: 0.3 };
+
+/** (x, z) 위치의 테두리 눈 둔덕 높이 (띠 밖이면 0) */
+export function plazaRimHeight(x: number, z: number): number {
+  const r = Math.hypot(x, z);
+  if (r <= PLAZA_RIM.inner || r >= PLAZA_RIM.outer) return 0;
+  const t = (r - PLAZA_RIM.inner) / (PLAZA_RIM.outer - PLAZA_RIM.inner);
+  // 가운데가 봉긋하고 양 끝은 완만하게 눈밭으로 이어지는 곡선 × 둘레를 따라 달라지는 높이(0.45~1배)
+  return PLAZA_RIM.height * Math.sin(Math.PI * t) ** 2 * (0.45 + 0.55 * valueNoise(x * 0.55 + 40, z * 0.55 - 23));
+}
+
 export type Terrain = {
-  /** (x, z) 위치의 눈 높이 */
+  /** (x, z) 위치의 땅 높이: 캐릭터·나무가 딛는 높이 (눈 둔덕 + 광장 테두리 둔덕) */
   heightAt: (x: number, z: number) => number;
+  /** 넓은 눈밭 그물만의 높이 (광장 테두리 둔덕은 따로 촘촘한 띠로 그리므로 뺀 값) */
+  baseHeightAt: (x: number, z: number) => number;
 };
 
 /**
@@ -76,7 +93,7 @@ export function createTerrain(slots: HouseSlot[], fenceRadius: number, edgeRadiu
   const houseOuter2 = HOUSE_FLAT.outer * HOUSE_FLAT.outer;
   const mailboxOuter2 = MAILBOX_FLAT.outer * MAILBOX_FLAT.outer;
 
-  const heightAt = (x: number, z: number): number => {
+  const baseHeightAt = (x: number, z: number): number => {
     const r = Math.hypot(x, z);
     // 광장 안은 평평, 광장 가장자리에서 서서히 솟기 시작
     let mask = smoothstep(PLAZA_RADIUS + 0.5, PLAZA_RADIUS + 3.5, r) * (1 - smoothstep(edgeRadius - 6, edgeRadius, r));
@@ -106,5 +123,7 @@ export function createTerrain(slots: HouseSlot[], fenceRadius: number, edgeRadiu
     return amplitude * bump * mask;
   };
 
-  return { heightAt };
+  const heightAt = (x: number, z: number) => baseHeightAt(x, z) + plazaRimHeight(x, z);
+
+  return { heightAt, baseHeightAt };
 }

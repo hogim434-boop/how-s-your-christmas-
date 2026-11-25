@@ -1,6 +1,6 @@
 "use client";
 
-// 눈 덮인 땅과 가운데 광장(베이지 원판)입니다.
+// 눈 덮인 땅과 가운데 광장(돌바닥, PlazaFloor.tsx)입니다.
 // 땅을 눌렀을 때 그 3D 좌표를 onGroundPointerDown으로 알려 줍니다. (캐릭터 걷기에 사용)
 //
 // 11.25 사용자 요청: 평평한 바닥 대신 실제 눈이 쌓인 것처럼 울퉁불퉁하게 (A+B안, 렌더링 부담 없이)
@@ -13,9 +13,9 @@
 import { useEffect, useMemo } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { PLAZA_RADIUS } from "@/lib/village/layout";
-import type { Terrain } from "@/lib/village/terrain";
+import { PLAZA_RIM, plazaRimHeight, type Terrain } from "@/lib/village/terrain";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
+import { PlazaFloor } from "./PlazaFloor";
 import { useNight } from "./nightContext";
 
 interface GroundProps {
@@ -112,7 +112,7 @@ export function Ground({ radius, detailRadius, terrain, onGroundPointerDown }: G
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = -pos.getY(i);
-      pos.setZ(i, terrain.heightAt(x, z));
+      pos.setZ(i, terrain.baseHeightAt(x, z));
     }
     // 노멀맵이 땅 위에서 NORMAL_TILE 크기마다 반복되도록 무늬 좌표를 실제 거리 기준으로
     const uv = g.attributes.uv as THREE.BufferAttribute;
@@ -131,6 +131,23 @@ export function Ground({ radius, detailRadius, terrain, onGroundPointerDown }: G
     for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / NORMAL_TILE, pos.getY(i) / NORMAL_TILE);
     return g;
   }, [detailRadius, radius]);
+
+  // 광장 테두리의 눈 둔덕: 좁은 띠라서 촘촘한 그물을 따로 씁니다 (광장의 칼같이 끊긴 가장자리를 덮어 줌)
+  const rimGeometry = useMemo(() => {
+    const g = new THREE.RingGeometry(PLAZA_RIM.inner, PLAZA_RIM.outer, 128, 8);
+    const pos = g.attributes.position as THREE.BufferAttribute;
+    const uv = g.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = -pos.getY(i);
+      // 아래 눈밭 높이 위에 둔덕을 얹습니다
+      pos.setZ(i, terrain.baseHeightAt(x, z) + plazaRimHeight(x, z));
+      uv.setXY(i, pos.getX(i) / NORMAL_TILE, pos.getY(i) / NORMAL_TILE);
+    }
+    g.computeVertexNormals();
+    return g;
+  }, [terrain]);
+  useEffect(() => () => rimGeometry.dispose(), [rimGeometry]);
 
   // 다른 마을로 바뀌어 그물을 새로 만들면, 이전 그물은 정리해 메모리를 아낍니다
   useEffect(() => () => detailGeometry.dispose(), [detailGeometry]);
@@ -159,10 +176,11 @@ export function Ground({ radius, detailRadius, terrain, onGroundPointerDown }: G
       <mesh geometry={outerGeometry} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={handlePointerDown}>
         {snowMaterial}
       </mesh>
-      {/* 광장: 눈밭보다 아주 조금 위에 얹은 베이지 원판 (광장은 평평) */}
-      <mesh position={[0, 0.02, 0]} onPointerDown={handlePointerDown}>
-        <cylinderGeometry args={[PLAZA_RADIUS, PLAZA_RADIUS, 0.04, 64]} />
-        <meshStandardMaterial color={VILLAGE_COLORS.plaza} emissive={VILLAGE_COLORS.plaza} emissiveIntensity={night ? 0 : 0.3} />
+      {/* 광장: 조약돌을 동심원으로 깐 돌바닥 */}
+      <PlazaFloor onPointerDown={handlePointerDown} />
+      {/* 광장 테두리의 눈 둔덕 (눈밭보다 살짝 위에 얹어 겹쳐 떨리지 않게) */}
+      <mesh geometry={rimGeometry} position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={handlePointerDown}>
+        {snowMaterial}
       </mesh>
     </group>
   );
