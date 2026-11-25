@@ -1,25 +1,48 @@
-// 첫 화면입니다. 지금은 빈 3D 장면 위에 서비스 이름만 올려 둡니다.
-// (로드맵 Task 002. 로그인·마을 화면 같은 다른 주소는 Task 004·005에서 만듭니다.)
+// 첫 화면 = 로그인 화면입니다. 주소: /  (초대로 왔으면 /?invite=코드)
+// (로드맵 Task 005. 지금은 가짜 데이터라서 버튼을 누르면 바로 다음 화면으로 넘어갑니다)
+//
+// Next.js 16: searchParams(주소의 ? 뒤 값)는 Promise라서 await로 꺼냅니다.
+// 이 프로젝트는 cacheComponents 모드라서, 이런 "요청마다 달라지는 값"을 읽는 부분만 <Suspense>로 감쌉니다.
+// 값을 읽는 동안에는 초대 표시가 없는 로그인 화면(fallback)이 먼저 보입니다.
 
+import { Suspense } from "react";
+import { LoginScreen } from "@/components/auth/LoginScreen";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import SceneLoader from "@/components/three/SceneLoader";
-import { DEFAULT_LOCALE, getMessages } from "@/i18n/messages";
+import { DUMMY_VILLAGE_NAME } from "@/lib/dummy/village";
 
-export default function Home() {
-  const t = getMessages(DEFAULT_LOCALE);
+// 주소에서 초대 코드를 읽어 로그인 화면에 넘기는 부분
+async function LoginContent({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
+  const { invite } = await searchParams;
+  const inviteCode = Array.isArray(invite) ? invite[0] : invite;
+  // TODO(Task 008): 초대 코드로 진짜 마을 이름을 찾아옵니다. 지금은 가짜 이름
+  return (
+    <LocaleProvider>
+      <LoginScreen inviteCode={inviteCode} inviteVillageName={inviteCode ? DUMMY_VILLAGE_NAME : undefined} />
+    </LocaleProvider>
+  );
+}
 
+export default function Home({ searchParams }: PageProps<"/">) {
   return (
     // h-dvh: 휴대폰 주소창 높이까지 고려한 "실제 화면 높이"만큼 채웁니다.
     <main className="relative h-dvh w-full overflow-hidden">
-      {/* 3D 장면이 화면 전체를 차지합니다 */}
+      {/* 배경: 3D 장면이 화면 전체를 차지합니다 */}
       <div className="absolute inset-0">
         <SceneLoader />
       </div>
 
-      {/* 3D 위에 겹쳐 보이는 글자. pointer-events-none: 글자가 3D 조작(드래그)을 막지 않게 */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-1 px-4 pt-10 text-center">
-        <h1 className="text-2xl font-semibold text-slate-700">{t.appName}</h1>
-        <p className="text-sm text-slate-500">{t.tagline}</p>
-      </div>
+      {/* LocaleProvider(언어 공급)는 Suspense "안쪽"에 둡니다.
+          바깥에 두면, 안쪽 내용이 준비되기 전에 언어가 먼저 바뀌어 서버가 그린 글자와 어긋납니다 */}
+      <Suspense
+        fallback={
+          <LocaleProvider>
+            <LoginScreen />
+          </LocaleProvider>
+        }
+      >
+        <LoginContent searchParams={searchParams} />
+      </Suspense>
     </main>
   );
 }
