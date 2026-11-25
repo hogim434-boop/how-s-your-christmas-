@@ -31,3 +31,12 @@ export function readStorageJson(key: string): unknown {
     return null;
   }
 }
+
+/** 저장된 값을 지웁니다. 막혀 있으면 조용히 넘어갑니다 */
+export function removeStorage(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // 지울 수 없으면 그대로 둡니다
+  }
+}
