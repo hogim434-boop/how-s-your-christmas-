@@ -15,7 +15,7 @@
 //    집마다 1개씩이라 사람이 늘수록 점점 느려졌습니다.
 //  - 그래서 가로등·집 앞 불빛은 "가짜 빛"(눈밭에 깔린 따뜻한 빛 번짐 그림)으로 바꿨습니다.
 //    그림 한 묶음을 한 번에 그려서(InstancedMesh) 집이 많아져도 부담이 거의 늘지 않습니다.
-//  - 진짜 불빛은 트리 앞 1개만 남깁니다.
+//  - 진짜 불빛은 하나도 쓰지 않습니다. 트리 앞 불빛도 가짜 빛으로 바꿨습니다 (사용자 요청: 모든 조명은 가짜 빛으로)
 //  - 달빛 그림자는 그림자 지도 크기를 2048 → 1024로 줄이고, 집·트리가 바뀔 때만 다시 그립니다 (ShadowFlags.tsx)
 
 import { useLayoutEffect, useMemo, useRef } from "react";
@@ -67,9 +67,6 @@ export function NightAtmosphere({ villageRadius, slots }: NightAtmosphereProps) 
         shadow-normalBias={0.03}
       />
 
-      {/* 트리 앞 따뜻한 불빛 */}
-      <pointLight position={[0, 4, 3]} color="#ffd38a" intensity={22} distance={14} />
-
       {/* 가로등 아래·집 앞 눈밭에 비친 따뜻한 빛 (가짜 빛, 한 번에 그림) */}
       <GroundGlows slots={slots} />
 
@@ -84,6 +81,8 @@ export function NightAtmosphere({ villageRadius, slots }: NightAtmosphereProps) 
 /** 빛 번짐 한 장의 정보: 위치, 반지름, 색 */
 type Glow = { x: number; z: number; radius: number; color: string };
 
+/** 트리 밑 빛 (예전 진짜 불빛: 트리 앞 범위 14). 트리 자체는 GiantTree.tsx에서 스스로 살짝 빛납니다 */
+const TREE_GLOW = { x: 0, z: 1.5, radius: 6.5, color: "#ffc98a" };
 /** 가로등 아래 빛 (예전 진짜 불빛: 범위 7) */
 const LAMP_GLOW = { radius: 3.2, color: "#ffcf8a" };
 /** 집 앞 창문 빛 (예전 진짜 불빛: 범위 5 × 집 배율) */
@@ -95,7 +94,7 @@ function GroundGlows({ slots }: { slots: HouseSlot[] }) {
   const ref = useRef<THREE.InstancedMesh>(null);
 
   const glows = useMemo<Glow[]>(() => {
-    const list: Glow[] = LAMPS.map((p) => ({ x: p.x, z: p.z, ...LAMP_GLOW }));
+    const list: Glow[] = [TREE_GLOW, ...LAMPS.map((p) => ({ x: p.x, z: p.z, ...LAMP_GLOW }))];
     for (const s of slots) {
       // 집 앞(광장 쪽)으로 집 크기만큼 떨어진 곳 = 예전 집 앞 불빛 바로 아래
       const front = 1.9 * HOUSE_SCALE;
