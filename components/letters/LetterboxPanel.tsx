@@ -11,7 +11,9 @@ import { Lock, Mail, Pencil, Trash2 } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useMessages } from "@/i18n/LocaleContext";
 import type { DummyReceivedLetter } from "@/lib/dummy/letters";
+import type { PaperKey } from "@/lib/letters/papers";
 import { letterPreview } from "@/lib/letters/rules";
+import { PAPER_LOOK } from "./paperLook";
 import { UI_COLORS } from "@/lib/village/theme";
 import { TEXT_BUTTON } from "@/components/ui/styles";
 
@@ -20,6 +22,8 @@ export type SentLetterRow = {
   recipientId: string;
   recipientName: string;
   content: string;
+  /** 어떤 편지지에 썼는지 */
+  paper: PaperKey;
   edited: boolean;
 };
 
@@ -68,7 +72,12 @@ export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDel
         <ul className="flex flex-col gap-2">
           {received.length === 0 && empty(t.letterboxEmptyReceived)}
           {received.map((letter) => (
-            <li key={letter.id} className={`${row} flex items-start gap-3 p-3.5`}>
+            <li
+              key={letter.id}
+              className={`${row} flex items-start gap-3 p-3.5`}
+              // 잠금이 풀린 편지는 보낸 사람이 고른 편지지 바탕으로 보여 줍니다
+              style={letter.paper ? PAPER_LOOK[letter.paper].background : undefined}
+            >
               {letter.content === null ? (
                 // 잠긴 편지: 보낸 사람·내용 없이 자물쇠와 남은 날만
                 <>
@@ -105,6 +114,12 @@ export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDel
             <li key={letter.recipientId} className={`${row} flex flex-col overflow-hidden`}>
               <div className="min-w-0 px-4 pb-2 pt-3.5">
                 <p className="flex items-center gap-2 text-sm font-semibold">
+                  {/* 고른 편지지 색 점 */}
+                  <span
+                    aria-hidden="true"
+                    className="size-3 shrink-0 rounded-full ring-1 ring-black/10"
+                    style={{ backgroundColor: PAPER_LOOK[letter.paper].swatch }}
+                  />
                   {t.letterTo.replace("{name}", letter.recipientName)}
                   {letter.edited && (
                     <span
