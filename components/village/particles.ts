@@ -10,7 +10,7 @@ import * as THREE from "three";
 
 /** 가운데는 진하고 가장자리로 갈수록 투명해지는 동그란 점 그림 (눈송이·연기·빛 알갱이 모양) */
 let softDotTexture: THREE.CanvasTexture | null = null;
-function softDot() {
+export function softDot() {
   if (softDotTexture) return softDotTexture;
   const size = 64;
   const canvas = document.createElement("canvas");
