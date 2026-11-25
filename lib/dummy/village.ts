@@ -4,6 +4,7 @@
 
 import type { VillageKind } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
+import { readStorage, writeStorage } from "@/lib/storage";
 
 export const MIN_RESIDENTS = 1;
 export const MAX_RESIDENTS = 20;
@@ -16,6 +17,22 @@ const DUMMY_NAMES = [
   "あおい", "수아", "そうた", "예린", "みお",
   "현우", "ゆな", "지안", "れん", "소라",
 ];
+
+/** 가짜 마을 이름 (초대 링크 입구·로그인 화면에서도 씁니다) */
+export const DUMMY_VILLAGE_NAME = "Dummy Village";
+
+/** 마을 만들기 화면에서 지은 이름을 이 브라우저에 기억해 두는 자리 (가짜 데이터용) */
+const CREATED_NAME_KEY = "hyc.dummy.villageName";
+
+export function saveCreatedVillageName(name: string) {
+  writeStorage(CREATED_NAME_KEY, name);
+}
+
+/** 마을 만들기 화면에서 지은 이름 (없으면 null) */
+export function loadCreatedVillageName(): string | null {
+  const name = readStorage(CREATED_NAME_KEY);
+  return name && name.trim() !== "" ? name : null;
+}
 
 export type DummyResident = { id: string; name: string; isMe: boolean };
 
@@ -49,7 +66,7 @@ export function getDummyVillage(options: { id: string; n: number; level: number 
 
   return {
     id: options.id,
-    name: "Dummy Village",
+    name: DUMMY_VILLAGE_NAME,
     kind: "friends",
     residents,
     // 나(r1) 말고, 홀수 번째 주민 몇 명에게 보낸 것으로 가정
@@ -58,11 +75,20 @@ export function getDummyVillage(options: { id: string; n: number; level: number 
   };
 }
 
-export type DummyOptions = { n: number; level: number; dev: boolean; tree: boolean };
+export type DummyOptions = {
+  n: number;
+  level: number;
+  dev: boolean;
+  tree: boolean;
+  /** true면 마을 화면이 열릴 때 캐릭터 꾸미기 창을 바로 엽니다 (입주 직후 흐름 확인용) */
+  customize: boolean;
+  /** true면 12.25가 지난 것처럼 편지 잠금을 풉니다 (잠금 해제 뒤 화면 확인용) */
+  unlock: boolean;
+};
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** 주소 뒤의 ?n=6&level=3&dev=1&tree=1 같은 값을 읽습니다. 없으면 기본값(n=6, level=0, dev=false, tree=false). tree=1은 "트리 전체 보기" 카메라 확인용입니다. */
+/** 주소 뒤의 ?n=6&level=3&dev=1&tree=1 같은 값을 읽습니다. 없으면 기본값(n=6, level=0, 나머지는 false). tree=1은 "트리 전체 보기" 카메라, customize=1은 꾸미기 창 바로 열기, unlock=1은 편지 잠금 풀기 확인용입니다. */
 export function parseDummyOptions(params: SearchParams): DummyOptions {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const num = (v: string | string[] | undefined, fallback: number) => {
@@ -78,5 +104,7 @@ export function parseDummyOptions(params: SearchParams): DummyOptions {
     // ?dev 처럼 값 없이 써도 켜지게 합니다 (0·false일 때만 꺼짐)
     dev: dev !== undefined && dev !== "0" && dev !== "false",
     tree: first(params.tree) === "1",
+    customize: first(params.customize) === "1",
+    unlock: first(params.unlock) === "1",
   };
 }
