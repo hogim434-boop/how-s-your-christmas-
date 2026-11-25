@@ -10,7 +10,7 @@
 //   </Overlay>
 
 import { useEffect, type ReactNode } from "react";
-import { DEFAULT_LOCALE, getMessages } from "@/i18n/messages";
+import { useMessages } from "@/i18n/LocaleContext";
 
 type OverlayProps = {
   /** 창이 열려 있는지 여부 */
@@ -35,7 +35,8 @@ export default function Overlay({ open, onClose, title, children }: OverlayProps
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  const t = getMessages(DEFAULT_LOCALE);
+  // 지금 화면 언어 (VillageView가 정해 줌. 없으면 기본 언어)
+  const t = useMessages();
 
   // 닫혀 있으면 아무것도 그리지 않습니다
   if (!open) return null;
