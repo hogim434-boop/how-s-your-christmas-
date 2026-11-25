@@ -17,9 +17,25 @@ import { DevLevelBar } from "./hud/DevLevelBar";
 import { MenuSheet } from "./hud/MenuSheet";
 import { Toast, type ToastMessage } from "./hud/Toast";
 import Overlay from "@/components/overlay/Overlay";
+import { LetterForm } from "@/components/letters/LetterForm";
+import { LetterboxPanel, type SentLetterRow } from "@/components/letters/LetterboxPanel";
+import { CharacterEditor } from "@/components/character/CharacterEditor";
 import { houseSlots, ringRadius } from "@/lib/village/layout";
 import { daysUntilChristmas } from "@/lib/village/dday";
-import { getDummyVillage, type DummyOptions } from "@/lib/dummy/village";
+import { copyText, inviteUrl } from "@/lib/village/invite";
+import { getDummyVillage, loadCreatedVillageName, type DummyOptions } from "@/lib/dummy/village";
+import {
+  initialSentLetters,
+  loadSentLetters,
+  receivedLetters,
+  removeLetter,
+  saveSentLetters,
+  upsertLetter,
+  type DummySentLetter,
+} from "@/lib/dummy/letters";
+import { isLetterLocked } from "@/lib/letters/rules";
+import { loadCharacterParts, saveCharacterParts } from "@/lib/character/parts";
+import type { CharacterParts } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
 import { getMessages, type Locale } from "@/i18n/messages";
 import { LocaleContext } from "@/i18n/LocaleContext";
@@ -29,7 +45,7 @@ import { SKY_THEMES, UI_COLORS, type SkyMode } from "@/lib/village/theme";
 interface VillageViewProps {
   /** 주소의 마을 번호 */
   id: string;
-  /** 주소 뒤 ?n=&level=&dev=&tree= 에서 읽은 값 */
+  /** 주소 뒤 ?n=&level=&dev=&tree=&customize=&unlock= 에서 읽은 값 */
   options: DummyOptions;
   /** 장식 단계(0~10). 주면 화면 안의 슬라이더 값 대신 이 값을 씁니다 */
   level?: number;
@@ -75,7 +91,8 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   const isTreeView = treeView ?? treeViewState;
 
   // 겹침 창과 안내 메시지(토스트)
-  const [overlay, setOverlay] = useState<OverlayState>(null);
+  // ?customize=1로 들어오면(입주 직후 흐름) 꾸미기 창을 바로 엽니다
+  const [overlay, setOverlay] = useState<OverlayState>(options.customize ? { kind: "customize" } : null);
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
@@ -122,14 +139,9 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
 
   // 초대 링크 복사. 지금은 가짜 주소(/invite/demo)이고, 실패하면 안내 메시지로 알려 줍니다
   const copyInvite = useCallback(async () => {
-    const url = `${window.location.origin}/invite/demo`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast(t.inviteCopied);
-    } catch {
-      // 브라우저가 복사를 막은 경우(권한·http 주소 등)
-      showToast(t.inviteCopyFailed);
-    }
+    const ok = await copyText(inviteUrl(window.location.origin, "demo"));
+    // 브라우저가 복사를 막은 경우(권한·http 주소 등)에는 실패 안내
+    showToast(ok ? t.inviteCopied : t.inviteCopyFailed);
   }, [showToast, t.inviteCopied, t.inviteCopyFailed]);
 
   // 이름표: 내 집은 "내 집"이라고, 나머지는 주민 이름을 집 위(높이 6)에 띄웁니다
@@ -147,7 +159,41 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   const [now] = useState(() => new Date());
   const dday = daysUntilChristmas(now);
 
+  // 마을 이름: 마을 만들기 화면에서 지은 이름이 있으면 그 이름 (가짜 데이터 단계에서만)
+  const [villageName] = useState(() => loadCreatedVillageName() ?? village.name);
+  const me = village.residents.find((r) => r.isMe);
+
+  // ── 편지 (가짜 저장소: 이 브라우저에만 저장) ──
+  // 12.25 0시(한국 시간) 전이면 "잠김": 받은 편지는 못 읽고, 보낸 편지는 고치거나 지울 수 있습니다
+  const locked = options.unlock ? false : isLetterLocked(now);
+  const [sentLetters, setSentLetters] = useState<DummySentLetter[]>(() =>
+    loadSentLetters(id, initialSentLetters(village)),
+  );
+  // 목록을 바꿀 때는 화면 값과 저장 공간을 함께 바꿉니다
+  const updateSentLetters = useCallback(
+    (next: DummySentLetter[]) => {
+      setSentLetters(next);
+      saveSentLetters(id, next);
+    },
+    [id],
+  );
+  // 내가 편지를 보낸 주민 id 목록 → 우체통의 "보냄" 표시에 씁니다
+  const sentTo = useMemo(() => sentLetters.map((l) => l.recipientId), [sentLetters]);
+  const received = useMemo(() => receivedLetters(village, locked), [village, locked]);
+  // 편지함의 보낸 편지 줄: 받는 사람 이름을 붙이고, 이 마을에 없는 사람의 편지는 뺍니다
+  const sentRows: SentLetterRow[] = sentLetters.flatMap((l) => {
+    const recipient = village.residents.find((r) => r.id === l.recipientId);
+    return recipient
+      ? [{ recipientId: l.recipientId, recipientName: recipient.name, content: l.content, edited: l.editedAt !== null }]
+      : [];
+  });
+
+  // ── 캐릭터 꾸미기 값 (마을마다 따로 저장) ──
+  const [characterParts, setCharacterParts] = useState<CharacterParts>(() => loadCharacterParts(id));
+
   const writeTarget = overlay?.kind === "write" ? village.residents.find((r) => r.id === overlay.residentId) : undefined;
+  // 그 친구에게 이미 보낸 편지가 있으면 "고치기" 모드가 됩니다
+  const writeExisting = writeTarget ? sentLetters.find((l) => l.recipientId === writeTarget.id) : undefined;
   const overlayOpen = overlay !== null;
 
   // 말풍선 버튼 글자. 창이 열려 있거나 트리 전체 보기 중이면 숨깁니다
@@ -158,7 +204,7 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
         ? t.openLetterboxPrompt
         : t.writeLetterTitle.replace("{name}", nearResident.name)
       : null;
-  const promptSent = nearResident && !nearResident.isMe && village.sentTo.includes(nearResident.id);
+  const promptSent = nearResident && !nearResident.isMe && sentTo.includes(nearResident.id);
 
   return (
     // h-dvh: 휴대폰 주소창을 뺀 실제 화면 높이
@@ -173,7 +219,7 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
           slots={slots}
           villageRadius={villageRadius}
           nameTags={nameTags}
-          sentTo={village.sentTo}
+          sentTo={sentTo}
           mailboxLabel={(name) => t.mailboxLabel.replace("{name}", name)}
           onMailboxSelect={handleMailboxSelect}
           mailboxSpots={mailboxSpots}
@@ -211,7 +257,7 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
       <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between">
         <div className="flex flex-col gap-2">
           <TopBar
-            villageName={village.name}
+            villageName={villageName}
             ddayText={dday.isDDay ? t.ddayDone : t.ddayLabel.replace("{n}", String(dday.days))}
             ddayCaption={dday.isDDay ? undefined : t.untilChristmas}
             // 더미 단계에서는 장식 단계 × 10 (진짜 데이터가 생기면 progressPercent로 교체)
@@ -233,53 +279,79 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
         <BottomBar
           treeView={isTreeView}
           showHint={!overlayOpen && !isTreeView}
-          labels={{
-            hint: t.tapHint,
-            treeView: t.treeView,
-            treeShort: t.treeShort,
-            backShort: t.backShort,
-            backToVillage: t.backToVillage,
-            letterbox: t.letterbox,
-            customize: t.customize,
-            invite: t.invite,
-            menu: t.menu,
-          }}
+          labels={{ hint: t.tapHint, treeView: t.treeView, backToVillage: t.backToVillage, menu: t.menu }}
           onToggleTreeView={() => setTreeViewState((prev) => !prev)}
-          onOpenLetterbox={() => setOverlay({ kind: "letterbox" })}
-          onOpenCustomize={() => setOverlay({ kind: "customize" })}
-          onCopyInvite={copyInvite}
           onOpenMenu={() => setOverlay({ kind: "menu" })}
         />
       </div>
 
       <Toast message={toast} onDone={clearToast} />
 
-      {/* 겹침 창들 (Overlay 뼈대 재사용). 안의 내용은 Task 005에서 채웁니다 */}
+      {/* 겹침 창들 (Overlay 뼈대 재사용) */}
       <Overlay
         open={overlay?.kind === "write"}
         onClose={closeOverlay}
         title={t.writeLetterTitle.replace("{name}", writeTarget?.name ?? "")}
       >
-        {/* TODO: 편지 쓰기 양식(Task 005) */}
-        <p className="text-sm text-slate-500">{t.writeLetterPlaceholder}</p>
+        {writeTarget && (
+          <LetterForm
+            toName={writeTarget.name}
+            fromName={me?.name ?? ""}
+            initialContent={writeExisting?.content ?? ""}
+            mode={writeExisting ? "edit" : "new"}
+            closed={!locked}
+            onSubmit={(content) => {
+              updateSentLetters(upsertLetter(sentLetters, writeTarget.id, content, new Date()));
+              closeOverlay();
+              showToast(writeExisting ? t.letterEdited : t.letterSent);
+            }}
+          />
+        )}
       </Overlay>
       <Overlay open={overlay?.kind === "letterbox"} onClose={closeOverlay} title={t.letterbox}>
-        {/* TODO: 받은·보낸 편지 목록(Task 005) */}
-        <p className="text-sm text-slate-500">{t.letterboxPlaceholder}</p>
+        <LetterboxPanel
+          received={received}
+          sent={sentRows}
+          locked={locked}
+          daysLeft={dday.days}
+          // 수정: 편지함을 닫고 그 친구에게 쓰는 창을 "고치기" 모드로 엽니다
+          onEdit={(recipientId) => setOverlay({ kind: "write", residentId: recipientId })}
+          onDelete={(recipientId) => {
+            updateSentLetters(removeLetter(sentLetters, recipientId));
+            showToast(t.letterDeleted);
+          }}
+        />
       </Overlay>
       <Overlay open={overlay?.kind === "customize"} onClose={closeOverlay} title={t.customize}>
-        {/* TODO: 캐릭터 꾸미기(Task 005) */}
-        <p className="text-sm text-slate-500">{t.customizePlaceholder}</p>
+        <CharacterEditor
+          initial={characterParts}
+          onConfirm={(parts) => {
+            setCharacterParts(parts);
+            saveCharacterParts(id, parts);
+            closeOverlay();
+            showToast(t.customizeSaved);
+          }}
+        />
       </Overlay>
       <MenuSheet
         open={overlay?.kind === "menu"}
         labels={{
           title: t.menu,
+          letterbox: t.letterbox,
+          customize: t.customize,
+          invite: t.invite,
           skyMode: t.skyMode,
           skyNames: { day: t.skyDay, night: t.skyNight },
           language: t.language,
           logout: t.logout,
           comingSoon: t.appComingSoon,
+        }}
+        // 메뉴의 기능 타일: 메뉴를 닫고(또는 다른 창으로 바꾸고) 그 기능을 실행합니다
+        onOpenLetterbox={() => setOverlay({ kind: "letterbox" })}
+        onOpenCustomize={() => setOverlay({ kind: "customize" })}
+        onCopyInvite={() => {
+          closeOverlay();
+          void copyInvite();
         }}
         sky={sky}
         onSkyChange={changeSky}
