@@ -10,7 +10,7 @@ import { VILLAGE_COLORS } from "@/lib/village/theme";
 import { NIGHT_GLOW, useNight } from "./nightContext";
 
 /** 전구 색 돌려쓰기 */
-const BULB_COLORS = ["#e8504a", "#ffd45c", "#4fb477", "#6c9be8", ...VILLAGE_COLORS.ornaments];
+export const BULB_COLORS = ["#e8504a", "#ffd45c", "#4fb477", "#6c9be8", ...VILLAGE_COLORS.ornaments];
 
 interface BulbStringProps {
   from: [number, number, number];

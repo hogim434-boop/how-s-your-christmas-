@@ -8,7 +8,8 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Kit } from "./Kit";
-import { BulbString } from "./BulbString";
+import { BULB_COLORS, BulbString } from "./BulbString";
+import { InstancedKit, placement } from "./InstancedKit";
 import { NIGHT_GLOW, useNight } from "./nightContext";
 import { Firework } from "./Firework";
 import { giftLayout, visibleStages, type DecorKey } from "@/lib/decor/decorTable";
@@ -144,28 +145,83 @@ const ROOF_LIGHTS: { from: [number, number, number]; to: [number, number, number
   { from: [EAVE.x, EAVE.y, ROOF_Z], to: [EAVE.x, EAVE.y, -ROOF_Z], count: 11 },
 ];
 
-/** 집마다 번갈아 놓는 옆 장식: 장식된 작은 트리 / 눈사람 A / 눈사람 B (KayKit) */
-function HouseSideProp({ index }: { index: number }) {
-  const kind = index % 3;
-  if (kind === 0) return <Kit pack="kaykit" name="christmas_tree_decorated" scale={0.6} position={[3.1, 0, 1.4]} />;
-  if (kind === 1) return <Kit pack="kaykit" name="snowman_A" scale={0.9} position={[3.0, 0, 1.6]} rotation={[0, -0.4, 0]} />;
-  return <Kit pack="kaykit" name="snowman_B" scale={0.8} position={[3.0, 0, 1.6]} rotation={[0, -0.4, 0]} />;
+/** 집마다 번갈아 놓는 옆 장식: 장식된 작은 트리 / 눈사람 A / 눈사람 B (KayKit). 위치는 집 안쪽 좌표 */
+const SIDE_PROPS = [
+  { name: "christmas_tree_decorated", local: placement([3.1, 0, 1.4], 0, 0.6) },
+  { name: "snowman_A", local: placement([3.0, 0, 1.6], -0.4, 0.9) },
+  { name: "snowman_B", local: placement([3.0, 0, 1.6], -0.4, 0.8) },
+] as const;
+/** 현관문(왼쪽 칸) 위의 리스. 위치는 집 안쪽 좌표 */
+const DOOR_WREATH = placement([-0.95, 1.7, 2.35], 0, 0.55);
+/** 집 한 채의 지붕 전구 개수 */
+const ROOF_BULBS = ROOF_LIGHTS.reduce((sum, l) => sum + l.count, 0);
+const ROOF_BULB_SIZE = 0.09;
+const ROOF_BULB_SAG = 0.08;
+
+/** 모든 집의 지붕 테두리 전구를 한 번에 그립니다 (집이 많아져도 그리기 명령은 1번) */
+function RoofLights({ houses }: { houses: THREE.Matrix4[] }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const night = useNight();
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const matrix = new THREE.Matrix4();
+    const point = new THREE.Vector3();
+    const color = new THREE.Color();
+    let n = 0;
+    for (const house of houses) {
+      for (const { from, to, count } of ROOF_LIGHTS) {
+        for (let i = 0; i < count; i++) {
+          const t = (i + 0.5) / count;
+          // 직선 위의 점에서, 가운데일수록 아래로 살짝 내림 (BulbString과 같은 계산)
+          const droop = ROOF_BULB_SAG * 4 * t * (1 - t);
+          point
+            .set(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t - droop, from[2] + (to[2] - from[2]) * t)
+            .applyMatrix4(house);
+          m.setMatrixAt(n, matrix.setPosition(point));
+          // 밤에는 색을 몇 배로 밝혀서 빛 번짐 효과가 불빛처럼 퍼뜨리게 합니다
+          m.setColorAt(n, color.set(BULB_COLORS[i % BULB_COLORS.length]).multiplyScalar(night ? NIGHT_GLOW : 1));
+          n++;
+        }
+      }
+    }
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [houses, night]);
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, houses.length * ROOF_BULBS]} frustumCulled={false}>
+      <sphereGeometry args={[ROOF_BULB_SIZE, 8, 8]} />
+      <meshBasicMaterial toneMapped={false} />
+    </instancedMesh>
+  );
 }
 
-/** 집 옆 장식 + 현관 리스 + 지붕 테두리 전구 줄 (4단계) */
+/**
+ * 집 옆 장식 + 현관 리스 + 지붕 테두리 전구 줄 (4단계)
+ * ⚡ 집마다 따로 그리지 않고, 같은 모델끼리 모아 한 번에 그립니다 (InstancedKit)
+ */
 function HouseDecor({ slots }: { slots: HouseSlot[] }) {
+  const { houses, wreaths, props } = useMemo(() => {
+    // 집마다 "집 안쪽 좌표 → 마을 좌표"로 바꾸는 행렬
+    const houses = slots.map((s) => placement([s.x, 0, s.z], s.rotation));
+    return {
+      houses,
+      wreaths: houses.map((h) => h.clone().multiply(DOOR_WREATH)),
+      // 옆 장식 종류별로 그 장식을 놓을 집들만 모읍니다
+      props: SIDE_PROPS.map((prop, kind) =>
+        houses.filter((_, i) => i % SIDE_PROPS.length === kind).map((h) => h.clone().multiply(prop.local)),
+      ),
+    };
+  }, [slots]);
+
   return (
     <group>
-      {slots.map((s, i) => (
-        <group key={i} position={[s.x, 0, s.z]} rotation={[0, s.rotation, 0]}>
-          <HouseSideProp index={i} />
-          {/* 현관문(왼쪽 칸) 위에 리스 */}
-          <Kit pack="kaykit" name="wreath" scale={0.55} position={[-0.95, 1.7, 2.35]} />
-          {ROOF_LIGHTS.map((l, j) => (
-            <BulbString key={j} from={l.from} to={l.to} sag={0.08} count={l.count} size={0.09} />
-          ))}
-        </group>
+      <InstancedKit pack="kaykit" name="wreath" matrices={wreaths} />
+      {SIDE_PROPS.map((prop, kind) => (
+        <InstancedKit key={prop.name} pack="kaykit" name={prop.name} matrices={props[kind]} />
       ))}
+      <RoofLights key={houses.length} houses={houses} />
     </group>
   );
 }
