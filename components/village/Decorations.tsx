@@ -463,29 +463,42 @@ function TreeGarland() {
   );
 }
 
-/** 별 모양 (뾰족한 5각형을 두껍게 늘린 것) */
-function createStarGeometry(): THREE.ExtrudeGeometry {
-  const shape = new THREE.Shape();
-  const OUTER = 1.0;
-  const INNER = 0.5;
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 === 0 ? OUTER : INNER;
-    const a = (i / 10) * Math.PI * 2 + Math.PI / 2; // 첫 뾰족한 끝이 위를 보게
-    const px = Math.cos(a) * r;
-    const py = Math.sin(a) * r;
-    if (i === 0) shape.moveTo(px, py);
-    else shape.lineTo(px, py);
+/**
+ * 별 모양: 보석처럼 각지게 깎인 "북극성"(✦) 모양입니다. (11.26 사용자 요청: 더 세련되고 현대적인 별)
+ * 위아래로 긴 끝 2개, 좌우 끝 2개, 그 사이 짧은 끝 4개 = 뾰족한 끝 8개.
+ * 가운데가 앞뒤로 도톰하고 끝으로 갈수록 얇아져서, 면마다 빛을 다르게 받아 반짝입니다.
+ */
+function createStarGeometry(): THREE.BufferGeometry {
+  /** 끝의 길이: 위·아래 / 좌·우 / 대각선 */
+  const TIP = { vertical: 1.3, horizontal: 0.88, diagonal: 0.46 };
+  /** 끝과 끝 사이 골짜기의 깊이 (작을수록 끝이 가늘고 날렵함) */
+  const VALLEY = 0.17;
+  /** 가운데의 앞뒤 두께 */
+  const DEPTH = 0.26;
+
+  // 테두리 점 16개: 끝(8개)과 골짜기(8개)가 번갈아 놓입니다. 맨 위 끝부터 시계 반대 방향
+  const ring: [number, number][] = [];
+  for (let i = 0; i < 16; i++) {
+    const angle = Math.PI / 2 + (i / 16) * Math.PI * 2;
+    let r = VALLEY;
+    if (i % 2 === 0) {
+      const tip = i / 2; // 0=위, 1=대각선, 2=왼쪽, 3=대각선, 4=아래 …
+      r = tip % 2 === 1 ? TIP.diagonal : tip % 4 === 0 ? TIP.vertical : TIP.horizontal;
+    }
+    ring.push([Math.cos(angle) * r, Math.sin(angle) * r]);
   }
-  shape.closePath();
-  // bevel: 모서리를 둥글게 깎아 통통한 장난감 별처럼 만듭니다
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.3,
-    bevelEnabled: true,
-    bevelThickness: 0.2,
-    bevelSize: 0.16,
-    bevelSegments: 4,
-  });
-  geo.center();
+  // 가운데 꼭짓점(앞·뒤)과 테두리 점을 세모로 이어 면을 만듭니다
+  const positions: number[] = [];
+  for (let i = 0; i < 16; i++) {
+    const [ax, ay] = ring[i];
+    const [bx, by] = ring[(i + 1) % 16];
+    positions.push(0, 0, DEPTH, ax, ay, 0, bx, by, 0); // 앞면
+    positions.push(0, 0, -DEPTH, bx, by, 0, ax, ay, 0); // 뒷면
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  // 면마다 따로 빛을 받게(각진 느낌) 면 방향을 계산합니다
+  geo.computeVertexNormals();
   return geo;
 }
 
@@ -530,14 +543,14 @@ const TWINKLES = [
   { x: -2.4, y: 0.1, size: 0.6, phase: 5.2 },
   { x: 2.5, y: 0.3, size: 0.7, phase: 0.9 },
 ];
-/** 별 색: 낮의 부드러운 금색 / 밤의 밝게 빛나는 금색 */
-const STAR_COLORS = { body: "#e9b23c", glow: "#ffcf5c", ray: "#fff2b8" };
+/** 별 색: 노란빛을 뺀 은은한 샴페인 금색 (몸통 / 스스로 내는 빛 / 빛살). 아침에는 밝은 하늘에 묻히지 않게 조금 더 짙은 금색(day~)을 씁니다 */
+const STAR_COLORS = { body: "#f2d9a0", dayBody: "#d6a548", glow: "#ffdf9e", ray: "#fff6dc", dayRay: "#f0cf85" };
 
 /**
  * 트리 꼭대기 별: 반짝반짝 빛납니다. (11.25 사용자 요청)
  * 모두 가짜 빛입니다(진짜 조명 없음).
  *  - 별 몸통: 스스로 빛나는 밝기가 숨 쉬듯 커졌다 작아짐 (밤에는 빛 번짐 효과가 받아서 환하게 퍼짐)
- *  - 큰 빛살(✦): 별 뒤에서 천천히 돌며 커졌다 작아짐
+ *  - 큰 빛살(✦): 별의 끝과 같은 방향으로 뻗었다 줄어듦
  *  - 작은 반짝임들: 별 둘레에서 저마다 다른 박자로 깜빡임
  * 별 모양을 교체할 때는 이 함수만 바꾸면 됩니다.
  */
@@ -559,14 +572,15 @@ function StarShape() {
 
     if (body.current) {
       const material = body.current.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = (night ? 1.3 : 0.4) + shine * (night ? 1.6 : 0.5);
+      // 밤에도 깎인 면이 구분되도록 스스로 내는 빛은 너무 세지 않게 둡니다
+      material.emissiveIntensity = (night ? 0.9 : 0.25) + shine * (night ? 1.0 : 0.3);
       // 별이 좌우로 천천히 돌아 여러 각도에서 반짝여 보입니다
-      body.current.rotation.y = Math.sin(t * 0.6) * 0.5;
+      body.current.rotation.y = Math.sin(t * 0.6) * 0.55;
     }
     if (rays.current) {
-      rays.current.scale.setScalar(4.2 + shine * 3.2);
-      rays.current.material.rotation = t * 0.35;
-      rays.current.material.opacity = (night ? 0.55 : 0.75) + shine * 0.3;
+      // 빛살은 돌지 않고 별의 위아래·좌우 끝과 같은 방향으로 가늘게 뻗었다 줄어듭니다
+      rays.current.scale.setScalar(5 + shine * 3);
+      rays.current.material.opacity = (night ? 0.4 : 0.5) + shine * 0.35;
     }
     twinkles.current.forEach((sprite, i) => {
       if (!sprite) return;
@@ -580,14 +594,15 @@ function StarShape() {
   });
 
   return (
-    <group position={[0, TREE_HEIGHT + 0.6, 0]}>
+    <group position={[0, TREE_HEIGHT + 1.25, 0]}>
       {/* 큰 십자 빛살 */}
       <sprite ref={rays} scale={5}>
-        <spriteMaterial map={sparkle()} color={STAR_COLORS.ray} transparent opacity={0.7} blending={blending} depthWrite={false} toneMapped={false} />
+        <spriteMaterial map={sparkle()} color={night ? STAR_COLORS.ray : STAR_COLORS.dayRay} transparent opacity={0.7} blending={blending} depthWrite={false} toneMapped={false} />
       </sprite>
       {/* 별 몸통 */}
-      <mesh ref={body} geometry={geometry} scale={1.6}>
-        <meshStandardMaterial color={STAR_COLORS.body} emissive={STAR_COLORS.glow} emissiveIntensity={0.6} roughness={0.5} />
+      <mesh ref={body} geometry={geometry} scale={1.75}>
+        {/* flatShading: 면과 면 사이를 부드럽게 잇지 않고 각지게 → 깎인 보석 느낌 */}
+        <meshStandardMaterial color={night ? STAR_COLORS.body : STAR_COLORS.dayBody} emissive={STAR_COLORS.glow} emissiveIntensity={0.6} roughness={0.3} metalness={0.15} flatShading />
       </mesh>
       {/* 둘레의 작은 반짝임들 */}
       {TWINKLES.map((tw, i) => (
@@ -599,7 +614,7 @@ function StarShape() {
           position={[tw.x, tw.y, 0.4]}
           scale={tw.size}
         >
-          <spriteMaterial map={sparkle()} color={STAR_COLORS.ray} transparent opacity={0} blending={blending} depthWrite={false} toneMapped={false} />
+          <spriteMaterial map={sparkle()} color={night ? STAR_COLORS.ray : STAR_COLORS.dayRay} transparent opacity={0} blending={blending} depthWrite={false} toneMapped={false} />
         </sprite>
       ))}
     </group>
