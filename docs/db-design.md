@@ -92,6 +92,7 @@ Supabase 로그인 기능이 만든 계정(`auth.users`)과 1:1로 짝을 이룹
 | sender_id | uuid | → users.id, 비울 수 없음 | 보낸 사람 (그 마을 주민만) |
 | recipient_id | uuid | → users.id | 받는 사람 (그 마을 주민만) |
 | content | text | 비울 수 없음, 글자 수 제한은 D-13 (임시 500자) | 내용 |
+| paper | text | 기본값 `'plain'`, 정해진 이름만 허용(plain·snow·tree·candy) | 편지지 종류 [추가 11.26] |
 | unlock_at | timestamptz | 12.25 0시 | 잠금 풀리는 시각 |
 | edited_at | timestamptz | 비워도 됨 | 마지막 수정 |
 | deleted_at | timestamptz | 비워도 됨 | 삭제 = 숨김 처리 |
