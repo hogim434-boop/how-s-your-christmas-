@@ -28,9 +28,11 @@ type OverlayProps = {
   title: string;
   /** 창 안에 들어갈 내용 */
   children: ReactNode;
+  /** full이면 화면을 거의 다 덮는 큰 창 (편지 쓰기처럼 넓은 자리가 필요할 때). 기본은 내용 높이만큼 */
+  size?: "auto" | "full";
 };
 
-export default function Overlay({ open, onClose, title, children }: OverlayProps) {
+export default function Overlay({ open, onClose, title, children, size = "auto" }: OverlayProps) {
   // 키보드 Esc를 누르면 창이 닫히게 합니다 (컴퓨터에서 볼 때 편하도록)
   useEffect(() => {
     if (!open) return;
@@ -66,7 +68,7 @@ export default function Overlay({ open, onClose, title, children }: OverlayProps
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[88dvh] w-full max-w-md flex-col rounded-t-[28px] bg-white shadow-[0_-12px_48px_rgba(20,26,54,0.28)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-10 motion-safe:duration-300 sm:rounded-[28px]"
+        className={`relative flex ${size === "full" ? "h-[93dvh] sm:h-[min(46rem,90dvh)]" : "max-h-[88dvh]"} w-full max-w-md flex-col rounded-t-[28px] bg-white shadow-[0_-12px_48px_rgba(20,26,54,0.28)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-10 motion-safe:duration-300 sm:rounded-[28px]`}
         style={{ color: UI_COLORS.navy }}
       >
         {/* 손잡이 줄: "아래에서 올라온 창"이라는 표시 (휴대폰에서만) */}
@@ -91,7 +93,13 @@ export default function Overlay({ open, onClose, title, children }: OverlayProps
         </header>
 
         {/* 내용: 길면 여기만 스크롤됩니다. 아래쪽은 아이폰 홈 막대만큼 띄웁니다 */}
-        <div className="min-h-0 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-1">{children}</div>
+        <div
+          className={`min-h-0 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-1 ${
+            size === "full" ? "flex flex-1 flex-col" : ""
+          }`}
+        >
+          {children}
+        </div>
       </section>
     </div>
   );
