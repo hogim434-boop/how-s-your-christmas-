@@ -4,42 +4,27 @@
 
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/messages";
 import { SKY_MODES, type SkyMode } from "./theme";
+import { readStorage, writeStorage } from "@/lib/storage";
 
 const LOCALE_KEY = "hyc.locale";
 const SKY_KEY = "hyc.sky";
 
-function read(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // 저장이 막혀 있으면 이번 화면에서만 적용됩니다
-  }
-}
-
 /** 저장해 둔 언어 (없거나 이상한 값이면 기본 언어) */
 export function loadLocale(): Locale {
-  const v = read(LOCALE_KEY);
+  const v = readStorage(LOCALE_KEY);
   return v === "ja" || v === "ko" ? v : DEFAULT_LOCALE;
 }
 
 export function saveLocale(locale: Locale) {
-  write(LOCALE_KEY, locale);
+  writeStorage(LOCALE_KEY, locale);
 }
 
 /** 저장해 둔 하늘 종류 (없거나 이상한 값이면 아침) */
 export function loadSky(): SkyMode {
-  const v = read(SKY_KEY);
+  const v = readStorage(SKY_KEY);
   return SKY_MODES.includes(v as SkyMode) ? (v as SkyMode) : "day";
 }
 
 export function saveSky(sky: SkyMode) {
-  write(SKY_KEY, sky);
+  writeStorage(SKY_KEY, sky);
 }
