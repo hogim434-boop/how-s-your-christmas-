@@ -1,16 +1,15 @@
 "use client";
 
-// 주민 한 명의 집입니다. Kenney 통나무집 부품(벽·창문·지붕)을 레고처럼 조립합니다.
-// 부품 하나는 가로세로 1칸이고, 벽은 그 칸의 앞쪽 가장자리에 붙어 있습니다.
-// 그래서 부품을 돌리면(rot) 왼쪽·오른쪽·뒤쪽 벽이 됩니다.
+// 주민 한 명의 집입니다. Kenney 통나무집 부품(벽·창문·지붕)을 레고처럼 조립한 모양입니다.
+// ⚡ 부품 21개를 하나씩 그리지 않고, 미리 2덩어리(벽 / 지붕·기둥)로 합쳐 둔 모양을 씁니다 (houseGeometry.ts)
 //
 // 이 집이 카메라와 캐릭터 사이를 가리면 반투명해집니다. (11.25 사용자 요청)
 // 캐릭터와 집 뒤쪽 우체통이 지붕에 가려 보이지 않던 문제를 막습니다.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { Kit } from "./Kit";
+import { useHouseParts } from "./houseGeometry";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
 import { skipShowThrough } from "./showThrough";
 import { isOccludingShape } from "@/lib/village/occlusion";
@@ -76,53 +75,6 @@ function setPrepassVisible(list: THREE.Mesh[], visible: boolean) {
   for (const mesh of list) mesh.visible = visible;
 }
 
-const HALF = Math.PI / 2;
-
-type Piece = {
-  name: string;
-  x: number;
-  z: number;
-  y?: number;
-  /** 돌리는 각도(라디안) */
-  rot?: number;
-  /** 좌우 뒤집기 */
-  flip?: boolean;
-  /** 앞뒤 길이 배율 (지붕이 겹치지 않게 살짝 줄임) */
-  depth?: number;
-  /** true면 집마다 정해진 벽 색을 입힙니다 (지붕·기둥은 그대로) */
-  wall?: boolean;
-};
-
-const PIECES: Piece[] = [
-  // 앞면(+z 쪽): 문 + 창문
-  { name: "cabin-door-rotate", x: -0.5, z: 0.5, wall: true },
-  { name: "cabin-window-a", x: 0.5, z: 0.5, wall: true },
-  // 뒷면
-  { name: "cabin-wall", x: -0.5, z: -0.5, rot: Math.PI, wall: true },
-  { name: "cabin-window-b", x: 0.5, z: -0.5, rot: Math.PI, wall: true },
-  // 왼쪽 면
-  { name: "cabin-wall-wreath", x: -0.5, z: 0.5, rot: -HALF, wall: true },
-  { name: "cabin-wall", x: -0.5, z: -0.5, rot: -HALF, wall: true },
-  // 오른쪽 면
-  { name: "cabin-window-b", x: 0.5, z: 0.5, rot: HALF, wall: true },
-  { name: "cabin-wall-wreath", x: 0.5, z: -0.5, rot: HALF, wall: true },
-  // 네 모서리 통나무 기둥
-  { name: "cabin-corner-logs", x: -0.5, z: 0.5 },
-  { name: "cabin-corner-logs", x: 0.5, z: 0.5, rot: HALF },
-  { name: "cabin-corner-logs", x: 0.5, z: -0.5, rot: Math.PI },
-  { name: "cabin-corner-logs", x: -0.5, z: -0.5, rot: -HALF },
-  // 지붕 아래 세모난 벽 (앞, 뒤)
-  { name: "cabin-wall-roof", x: 0.5, z: 0.5, y: 1, wall: true },
-  { name: "cabin-wall-roof", x: -0.5, z: 0.5, y: 1, flip: true, wall: true },
-  { name: "cabin-wall-roof", x: -0.5, z: -0.5, y: 1, rot: Math.PI, wall: true },
-  { name: "cabin-wall-roof", x: 0.5, z: -0.5, y: 1, rot: Math.PI, flip: true, wall: true },
-  // 눈 쌓인 지붕 (오른쪽 2장, 왼쪽 2장)
-  { name: "cabin-roof-snow", x: 0.5, z: 0.6, y: 1, depth: 0.857 },
-  { name: "cabin-roof-snow-chimney", x: 0.5, z: -0.6, y: 1, depth: 0.857 },
-  { name: "cabin-roof-snow", x: -0.5, z: 0.6, y: 1, rot: Math.PI, depth: 0.857 },
-  { name: "cabin-roof-snow", x: -0.5, z: -0.6, y: 1, rot: Math.PI, depth: 0.857 },
-];
-
 /** 집 모델 확대 배율 (한 변 2칸 × 1.9 = 약 3.8) */
 export const HOUSE_SCALE = 1.9;
 
@@ -150,6 +102,16 @@ export function House({ position, rotation, wallColor }: HouseProps) {
   // 계산용 임시 값 (매 프레임 새로 만들지 않게)
   const temp = useRef({ v: new THREE.Vector3(), center: new THREE.Vector3() });
 
+  // 합쳐 둔 집 모양 (모든 집이 같이 씀)
+  const parts = useHouseParts();
+  // 이 집만의 재질 2개: 벽(집 색) / 지붕·기둥(원래 색). 그리는 순서는 아래 mesh에서 지정합니다
+  const own = useMemo(() => {
+    const wall = parts.material.clone();
+    wall.color.set(wallColor);
+    return { wall, other: parts.material.clone() };
+  }, [parts, wallColor]);
+  useEffect(() => () => [own.wall, own.other].forEach((m) => m.dispose()), [own]);
+
   useEffect(() => {
     const g = group.current;
     if (!g) return;
@@ -162,14 +124,8 @@ export function House({ position, rotation, wallColor }: HouseProps) {
       if (mesh.isMesh) meshes.push(mesh);
     });
 
-    const list: THREE.Material[] = [];
     const extra: THREE.Mesh[] = [];
     for (const mesh of meshes) {
-      // 재질 복사 + 그리는 순서 지정
-      const copy = (mesh.material as THREE.Material).clone();
-      mesh.material = copy;
-      mesh.renderOrder = RENDER_ORDER.COLOR;
-      list.push(copy);
       // 같은 모양으로 깊이만 그리는 사본을 바로 옆에 붙입니다 (평소엔 숨김)
       const depthOnly = new THREE.Mesh(mesh.geometry, PREPASS_MATERIAL);
       depthOnly.renderOrder = RENDER_ORDER.PREPASS;
@@ -181,18 +137,18 @@ export function House({ position, rotation, wallColor }: HouseProps) {
       const b = mesh.geometry.boundingBox!.clone().applyMatrix4(toLocal.clone().multiply(mesh.matrixWorld));
       box.union(b);
     }
-    materials.current = list;
+    materials.current = [own.wall, own.other];
     prepass.current = extra;
     houseMeshes.current = meshes;
+    opacity.current = 1;
     corners.current = [0, 1, 2, 3, 4, 5, 6, 7].map(
       (i) =>
         new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z),
     );
     return () => {
       extra.forEach((m) => m.removeFromParent());
-      list.forEach((m) => m.dispose());
     };
-  }, [wallColor]);
+  }, [own, parts]);
 
   useFrame(({ camera, scene }, delta) => {
     const g = group.current;
@@ -230,16 +186,8 @@ export function House({ position, rotation, wallColor }: HouseProps) {
 
   return (
     <group ref={group} position={position} rotation={[0, rotation, 0]} scale={HOUSE_SCALE}>
-      {PIECES.map((p, i) => (
-        <Kit
-          key={i}
-          name={p.name}
-          tint={p.wall ? wallColor : undefined}
-          position={[p.x, p.y ?? 0, p.z]}
-          rotation={[0, p.rot ?? 0, 0]}
-          scale={[p.flip ? -1 : 1, 1, p.depth ?? 1]}
-        />
-      ))}
+      <mesh geometry={parts.wall} material={own.wall} renderOrder={RENDER_ORDER.COLOR} />
+      <mesh geometry={parts.other} material={own.other} renderOrder={RENDER_ORDER.COLOR} />
     </group>
   );
 }
