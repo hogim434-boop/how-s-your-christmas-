@@ -39,6 +39,11 @@ export type DecorStage = {
 /**
  * 단계별 장식 목록. 앞 단계 장식은 그대로 남고 쌓입니다.
  * (선물은 이 표와 별개로 단계마다 1개씩 늘어납니다 → giftLayout 참고)
+ * 11.25 사용자 요청: 트리(특히 위쪽) 장식이 부족해 보여 "짝꿍 장식"을 더했습니다. 단계는 그대로입니다.
+ *  - 2단계 빨간 방울 3개 + 초록 방울 3개
+ *  - 5단계 산타 양말 3개 + 지팡이 사탕 3개
+ *  - 9단계 구슬 줄 + 꼬마전구 줄
+ *  아래 count는 원래 장식의 개수이고, 짝꿍 장식은 화면 코드(components/village/Decorations.tsx)가 같은 단계에 함께 그립니다.
  */
 export const DECOR_STAGES: readonly DecorStage[] = [
   { level: 1, key: "string_lights", count: null, ornament: false },

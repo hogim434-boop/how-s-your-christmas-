@@ -23,26 +23,37 @@ type KitProps = ThreeElements["group"] & {
   pack?: ModelPack;
   /** 지정하면 이 색을 곱해서 칠합니다 (집 벽 색깔 바꾸기용). 원본 재질은 건드리지 않고 복사해서 씁니다. */
   tint?: string;
+  /**
+   * 0보다 크면 모델이 자기 색으로 스스로 빛납니다 (가짜 빛: 조명 없이 밝아 보이게). 밤의 트리 장식용.
+   * 원본 재질은 건드리지 않고 복사해서 씁니다.
+   */
+  glow?: number;
 };
 
-export function Kit({ name, pack = "kenney", tint, ...props }: KitProps) {
+export function Kit({ name, pack = "kenney", tint, glow = 0, ...props }: KitProps) {
   const { scene } = useGLTF(modelUrl(pack, name));
 
   // 복사본 만들기. scene.clone: 모양은 공유하고 위치·회전만 따로 가지는 사본
   const object = useMemo(() => {
     const copy = scene.clone(true);
-    if (tint) {
+    if (tint || glow > 0) {
       copy.traverse((child) => {
         const mesh = child as THREE.Mesh;
         if (!mesh.isMesh) return;
-        // 재질도 복사해야 다른 집의 색이 같이 바뀌지 않습니다
+        // 재질도 복사해야 같은 모델을 쓰는 다른 물체의 색이 같이 바뀌지 않습니다
         const material = (mesh.material as THREE.MeshStandardMaterial).clone();
-        material.color.set(tint);
+        if (tint) material.color.set(tint);
+        if (glow > 0) {
+          // 모델의 색 그림 그대로 빛나게 (빨간 방울은 빨갛게, 종은 금색으로)
+          material.emissive = new THREE.Color("#ffffff");
+          material.emissiveMap = material.map;
+          material.emissiveIntensity = glow;
+        }
         mesh.material = material;
       });
     }
     return copy;
-  }, [scene, tint]);
+  }, [scene, tint, glow]);
 
   return (
     <group {...props}>
@@ -83,6 +94,8 @@ export const PRELOAD_MODELS = [
   "snowflake-b",
   "snowflake-c",
   "gingerbread-man",
+  "candy-cane-red",
+  "candy-cane-green",
 ] as const;
 
 /** KayKit Holiday Bits에서 쓰는 모델 이름 목록 (미리 받아 두기) */

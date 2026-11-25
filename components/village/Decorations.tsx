@@ -6,6 +6,7 @@
 // level 0이면 아무것도 그리지 않아서 트리와 광장이 완전히 비어 있습니다.
 
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Kit } from "./Kit";
 import { BULB_COLORS, BulbString } from "./BulbString";
@@ -25,9 +26,31 @@ import {
 // angle: 트리 둘레 방향(라디안, 0 = 카메라 쪽 정면), t: 높이 비율(0 = 바닥, 1 = 꼭대기)
 type OrnamentSlot = { angle: number; t: number };
 
-type OrnamentKey = Extract<DecorKey, "red_bauble" | "yellow_bell" | "stocking" | "snowflake" | "cookie">;
+/**
+ * 트리에 거는 오너먼트 종류.
+ * 앞의 5가지는 장식표의 단계와 이름이 같고, 뒤의 2가지(초록 방울·지팡이 사탕)는
+ * 트리 위쪽을 채우려고 더한 짝꿍 장식입니다. 짝꿍은 ORNAMENT_STAGE에 적힌 단계에 함께 나타납니다.
+ * (11.25 사용자 요청: 장식이 부족해 보임, 특히 위쪽. 같은 장식을 늘리지 않고 새 장식으로)
+ */
+type OrnamentKey = "red_bauble" | "yellow_bell" | "stocking" | "snowflake" | "cookie" | "green_bauble" | "candy_cane";
 
-/** 종류별 3개씩의 고정 자리. 앞쪽에서 잘 보이도록 정면 근처에 많이 두고, 하나씩은 옆으로 돌려 놓았습니다. */
+/** 각 오너먼트가 어느 장식 단계에 나타나는지 */
+const ORNAMENT_STAGE: Record<OrnamentKey, DecorKey> = {
+  red_bauble: "red_bauble",
+  yellow_bell: "yellow_bell",
+  stocking: "stocking",
+  snowflake: "snowflake",
+  cookie: "cookie",
+  // 초록 방울은 빨간 방울과 함께(2단계), 지팡이 사탕은 산타 양말과 함께(5단계)
+  green_bauble: "red_bauble",
+  candy_cane: "stocking",
+};
+
+/**
+ * 종류별 3개씩의 고정 자리.
+ * 원래 5가지는 아래쪽·정면 근처에, 새로 더한 초록 방울·지팡이 사탕은 위쪽에 답니다.
+ * 둘레 방향은 정면·좌우에 고르게 돌려 놓았습니다.
+ */
 const ORNAMENT_SLOTS: Record<OrnamentKey, OrnamentSlot[]> = {
   red_bauble: [
     { angle: -0.55, t: 0.2 },
@@ -54,12 +77,36 @@ const ORNAMENT_SLOTS: Record<OrnamentKey, OrnamentSlot[]> = {
     { angle: 1.5, t: 0.38 },
     { angle: -2.3, t: 0.36 },
   ],
+  green_bauble: [
+    { angle: -1.15, t: 0.6 },
+    { angle: 0.7, t: 0.71 },
+    { angle: -0.3, t: 0.83 },
+  ],
+  candy_cane: [
+    { angle: 1.1, t: 0.61 },
+    { angle: -0.55, t: 0.68 },
+    { angle: 0.15, t: 0.76 },
+  ],
 };
 
+/**
+ * 높이에 따른 크기 배율: 위쪽 가지는 좁아서 같은 크기로 달면 커 보입니다.
+ * 중간(높이 45%)까지는 원래 크기, 꼭대기 쪽(90%)으로 갈수록 65%까지 작아집니다.
+ */
+function sizeAtHeight(t: number): number {
+  const f = Math.min(1, Math.max(0, (t - 0.45) / 0.45));
+  return 1 - 0.35 * f;
+}
 
-/** 오너먼트 한 개의 3D 좌표와 바깥 방향 */
+/**
+ * 오너먼트를 거는 자리: 잎 표면에서 이만큼 바깥(가지 끝).
+ * 트리는 아래로 갈수록 넓어지므로, 조금 띄워야 늘어진 장식이 아래층 잎에 파묻히지 않습니다.
+ */
+const HANG_OUT = 0.5;
+
+/** 오너먼트가 걸리는 점(끈의 위쪽 끝)의 3D 좌표와 바깥 방향 */
 function ornamentTransform({ angle, t }: OrnamentSlot) {
-  const r = treeSurfaceRadius(t);
+  const r = treeSurfaceRadius(t) + HANG_OUT;
   return {
     position: [Math.sin(angle) * r, t * TREE_HEIGHT, Math.cos(angle) * r] as [number, number, number],
     // 장식 앞면이 트리 바깥을 보게 돌림
@@ -70,38 +117,100 @@ function ornamentTransform({ angle, t }: OrnamentSlot) {
 const SNOWFLAKES = ["snowflake-a", "snowflake-b", "snowflake-c"] as const;
 const STOCKINGS = ["sock-red", "sock-green", "sock-red-cane"] as const;
 
-// ───────── 교체하기 쉬운 임시 모양들 ─────────
-// Bauble·Bell·Cookie는 KayKit 모델, SpiralBeads·StarShape는 직접 만든 모양입니다.
-// 모양을 바꾸고 싶으면 해당 함수 하나의 안쪽만 고치면 됩니다. (바깥 코드는 그대로)
+// ───────── 오너먼트 모양 ─────────
+// 11.25 사용자 요청: 장식이 너무 커서 트리에 붙인 스티커처럼 보임 → 실제로 가지에 매단 것처럼
+//  - 크기를 절반 정도로 (쿠키는 특히 컸어서 더 많이)
+//  - 가지 끝에서 "끈"으로 아래로 늘어뜨림
+//  - 바람에 살랑살랑 흔들림 (장식마다 박자가 조금씩 다름)
+//
+// 표의 값은 모델을 재서 정했습니다.
+//  scale: 크기 배율, top: 모델에서 끈을 묶는 꼭대기 높이, centerX: 모델의 좌우 가운데(끈 바로 아래로 오게 맞춤)
+type OrnamentLook = { pack: "kenney" | "kaykit"; scale: number; top: number; centerX?: number; rotationX?: number };
+const ORNAMENT_LOOK: Record<OrnamentKey, OrnamentLook> = {
+  // 빨간 방울: KayKit 리본 공 (지름 약 0.75)
+  red_bauble: { pack: "kaykit", scale: 1.3, top: 0.44 },
+  // 노란 종: KayKit bell (폭 약 0.85)
+  yellow_bell: { pack: "kaykit", scale: 1.05, top: 0.6 },
+  // 양말: Kenney sock (길이 약 0.9)
+  stocking: { pack: "kenney", scale: 1.4, top: 0.64 },
+  // 눈꽃: Kenney snowflake (약 0.7). 모델이 한쪽으로 치우쳐 있어 가운데를 맞춤
+  snowflake: { pack: "kenney", scale: 1.75, top: 0.4, centerX: -0.175 },
+  // 쿠키: KayKit 진저브레드맨 (키 약 1.0). 누워 있는 모델이라 세워서 얼굴이 바깥을 보게 함
+  cookie: { pack: "kaykit", scale: 1.35, top: 0.4, rotationX: Math.PI / 2 },
+  // 초록 방울: KayKit 리본 공 초록 (지름 약 0.75)
+  green_bauble: { pack: "kaykit", scale: 0.95, top: 0.57 },
+  // 지팡이 사탕: Kenney candy-cane (길이 약 0.8). 빨강·초록을 번갈아 답니다
+  candy_cane: { pack: "kenney", scale: 1.8, top: 0.45 },
+};
 
-/** 빨간 방울: KayKit 리본 공 모델(present_sphere_A_red)을 거는 방울로 씁니다 */
-function Bauble() {
-  return <Kit pack="kaykit" name="present_sphere_A_red" scale={1.5} position={[0, -0.1, 0.2]} />;
+/** 종류와 순번으로 모델 이름을 정합니다 */
+function ornamentModel(kind: OrnamentKey, index: number): string {
+  if (kind === "red_bauble") return "present_sphere_A_red";
+  if (kind === "yellow_bell") return "bell";
+  if (kind === "cookie") return "gingerbread_man";
+  if (kind === "green_bauble") return "present_sphere_B_green";
+  if (kind === "candy_cane") return index % 2 === 0 ? "candy-cane-red" : "candy-cane-green";
+  if (kind === "stocking") return STOCKINGS[index % 3];
+  return SNOWFLAKES[index % 3];
 }
 
-/** 노란 종: KayKit bell 모델 */
-function Bell() {
-  return <Kit pack="kaykit" name="bell" scale={1.3} position={[0, 0.1, 0.2]} />;
-}
+/**
+ * 밤의 오너먼트 빛 (가짜 빛, 11.25 사용자 요청: 밤에 장식이 밋밋함)
+ * self: 장식이 자기 색으로 스스로 빛나는 정도.
+ * (장식 뒤에 둥근 빛 번짐 그림도 깔아 봤지만, 사용자 요청으로 뺐습니다)
+ */
+const ORNAMENT_NIGHT = { self: 0.55 };
 
-/** 쿠키: KayKit 진저브레드맨을 눕힌 모양에서 세워서 트리에 붙임 */
-function Cookie() {
-  return <Kit pack="kaykit" name="gingerbread_man" scale={2.6} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.25]} />;
-}
+/** 끈 길이와 굵기, 색 */
+const CORD = { length: 0.28, radius: 0.014, color: "#d9b25a" };
+/** 흔들림: 좌우·앞뒤로 기우는 최대 각도(라디안)와 빠르기 */
+const SWAY = { side: 0.09, front: 0.05, speed: 1.2 };
 
-/** 트리에 거는 오너먼트는 숲 속 큰 트리에서도 잘 보이도록 이 배율만큼 키웁니다 */
-const ORNAMENT_SCALE = 1.5;
-
-/** 오너먼트 종류별로 어떤 모양을 쓸지 연결합니다 */
+/** 가지 끝에 끈으로 매달려 살랑살랑 흔들리는 오너먼트 한 개 */
 function Ornament({ kind, slot, index }: { kind: OrnamentKey; slot: OrnamentSlot; index: number }) {
   const { position, rotationY } = ornamentTransform(slot);
+  const look = ORNAMENT_LOOK[kind];
+  // 위쪽 장식일수록 작게 (끈 길이도 함께)
+  const size = sizeAtHeight(slot.t);
+  const scale = look.scale * size;
+  const cord = CORD.length * size;
+  // 초록 지팡이 사탕 모델은 한쪽으로 치우쳐 있어서 가운데를 따로 맞춥니다
+  const centerX = kind === "candy_cane" && index % 2 === 1 ? -0.1 : (look.centerX ?? 0);
+  const swing = useRef<THREE.Group>(null);
+  const night = useNight();
+  // 장식마다 흔들리는 박자와 돌아간 방향을 다르게 (자리 값으로 정해 새로고침해도 같음)
+  const phase = slot.angle * 3.1 + slot.t * 17 + index;
+
+  useFrame(({ clock }) => {
+    const g = swing.current;
+    if (!g) return;
+    const time = clock.elapsedTime * SWAY.speed;
+    // 끈을 묶은 점(이 그룹의 원점)을 축으로 진자처럼 흔들립니다
+    g.rotation.z = Math.sin(time + phase) * SWAY.side;
+    g.rotation.x = Math.sin(time * 0.73 + phase * 1.7) * SWAY.front;
+  });
+
   return (
-    <group position={position} rotation={[0, rotationY, 0]} scale={ORNAMENT_SCALE}>
-      {kind === "red_bauble" && <Bauble />}
-      {kind === "yellow_bell" && <Bell />}
-      {kind === "stocking" && <Kit name={STOCKINGS[index % 3]} scale={1.6} position={[0, -0.3, 0.1]} />}
-      {kind === "snowflake" && <Kit name={SNOWFLAKES[index % 3]} scale={1.8} position={[0.3, -0.3, 0.2]} />}
-      {kind === "cookie" && <Cookie />}
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <group ref={swing}>
+        {/* 끈 */}
+        <mesh position={[0, -cord / 2, 0]}>
+          <cylinderGeometry args={[CORD.radius, CORD.radius, cord, 5]} />
+          <meshStandardMaterial color={CORD.color} roughness={0.6} />
+        </mesh>
+        {/* 장식: 꼭대기가 끈 아래 끝에 오도록 내려 달고, 살짝 틀어서 손으로 단 느낌을 냅니다 */}
+        <group position={[0, -cord, 0]} rotation={[0, Math.sin(phase) * 0.35, 0]}>
+          <Kit
+            pack={look.pack}
+            name={ornamentModel(kind, index)}
+            // 밤에는 장식이 자기 색으로 살짝 빛납니다
+            glow={night ? ORNAMENT_NIGHT.self : 0}
+            scale={scale}
+            rotation={[look.rotationX ?? 0, 0, 0]}
+            position={[-centerX * scale, -look.top * scale, 0]}
+          />
+        </group>
+      </group>
     </group>
   );
 }
@@ -277,9 +386,51 @@ function SantaRudolph() {
   );
 }
 
+/** 꼬마전구 줄: 전구 수, 크기, 몇 바퀴 감는지 */
+const FAIRY = { count: 280, radius: 0.085, turns: 6.5 };
+
+/**
+ * 트리를 꼭대기까지 감는 꼬마전구 줄 (9단계, 구슬 줄과 함께). — 11.25 사용자 요청
+ * 구슬 줄과 반대 방향으로 감아서 서로 엇갈리고, 트리 위쪽의 빈 곳을 채웁니다.
+ * 밤에는 전구가 스스로 빛나서(빛 번짐) 트리와 오너먼트 둘레가 반짝입니다.
+ * 전구 280개를 한 번에 그리므로(InstancedMesh) 부담이 거의 없습니다.
+ */
+function TreeFairyLights() {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const night = useNight();
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const matrix = new THREE.Matrix4();
+    const color = new THREE.Color();
+    for (let i = 0; i < FAIRY.count; i++) {
+      const f = i / (FAIRY.count - 1);
+      const t = 0.1 + f * 0.84; // 높이 비율: 아래(10%)부터 꼭대기 바로 밑(94%)까지
+      // 구슬 줄과 반대 방향(-)으로 감고, 줄이 가지에 걸쳐 살짝 늘어진 것처럼 높이를 조금 출렁이게 합니다
+      const angle = -f * FAIRY.turns * Math.PI * 2;
+      const r = treeSurfaceRadius(t) + 0.12;
+      const droop = Math.sin(f * FAIRY.turns * 14) * 0.07;
+      matrix.setPosition(Math.sin(angle) * r, t * TREE_HEIGHT + droop, Math.cos(angle) * r);
+      m.setMatrixAt(i, matrix);
+      m.setColorAt(i, color.set(BULB_COLORS[i % BULB_COLORS.length]).multiplyScalar(night ? NIGHT_GLOW : 1));
+    }
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [night]);
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, FAIRY.count]} frustumCulled={false}>
+      <sphereGeometry args={[FAIRY.radius, 8, 8]} />
+      {/* 조명과 상관없이 불 켜진 것처럼 밝게 */}
+      <meshBasicMaterial toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
 /** 구슬 줄 색: 크림색 줄에 빨강·파랑·금색 구슬이 섞임 (KayKit 트리 느낌) */
 const BEAD_COLORS = ["#ead7a6", "#ead7a6", "#d9a441", "#ead7a6", "#c0394a", "#ead7a6", "#3f7fc0"];
-const BEAD_COUNT = 150;
+/** 구슬 수와 크기. 오너먼트를 줄이면서 구슬도 방울(지름 약 0.75)보다 작게 맞췄습니다 (11.25) */
+const BEAD_COUNT = 320;
+const BEAD_RADIUS = 0.13;
 
 /** 트리를 감싸는 나선 구슬 줄 (9단계). 교체할 때 이 함수만 바꾸면 됩니다 */
 function TreeGarland() {
@@ -296,7 +447,7 @@ function TreeGarland() {
       const f = i / (BEAD_COUNT - 1);
       const t = 0.07 + f * 0.8; // 높이 비율
       const angle = f * TURNS * Math.PI * 2;
-      const r = treeSurfaceRadius(t) + 0.15;
+      const r = treeSurfaceRadius(t) + 0.1;
       matrix.setPosition(Math.sin(angle) * r, t * TREE_HEIGHT, Math.cos(angle) * r);
       m.setMatrixAt(i, matrix);
       m.setColorAt(i, color.set(BEAD_COLORS[i % BEAD_COLORS.length]).multiplyScalar(night ? NIGHT_GLOW * 0.55 : 1));
@@ -306,7 +457,7 @@ function TreeGarland() {
   }, [night]);
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, BEAD_COUNT]} frustumCulled={false}>
-      <sphereGeometry args={[0.28, 10, 10]} />
+      <sphereGeometry args={[BEAD_RADIUS, 8, 8]} />
       {night ? <meshBasicMaterial toneMapped={false} /> : <meshStandardMaterial roughness={0.55} />}
     </instancedMesh>
   );
@@ -343,14 +494,120 @@ const FIREWORKS = [
   { offset: [4.8, 5, 0] as [number, number, number], color: "#ffd45c", delay: 0.8 },
 ];
 
-/** 트리 꼭대기 별 (임시 모양: 별 모양을 두껍게 늘린 것). 교체할 때 이 함수만 바꾸면 됩니다 */
+/** 십자 모양으로 뻗는 빛살 그림 (별이 반짝일 때의 ✦ 모양). 한 번만 만들어 둡니다 */
+let sparkleTexture: THREE.CanvasTexture | null = null;
+function sparkle() {
+  if (sparkleTexture) return sparkleTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const c = size / 2;
+  // 가로·세로로 길쭉한 빛 두 줄을 겹쳐 십자 빛살을 만듭니다
+  for (const [sx, sy] of [
+    [1, 0.07],
+    [0.07, 1],
+  ]) {
+    ctx.save();
+    ctx.translate(c, c);
+    ctx.scale(sx, sy);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, c);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.3, "rgba(255,255,255,0.55)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, c, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  sparkleTexture = new THREE.CanvasTexture(canvas);
+  return sparkleTexture;
+}
+
+/** 별 둘레에서 깜빡이는 작은 반짝임들의 자리 (별 기준 좌표)와 박자 */
+const TWINKLES = [
+  { x: -1.9, y: 1.1, size: 0.9, phase: 0.0 },
+  { x: 1.8, y: 1.4, size: 1.1, phase: 1.7 },
+  { x: -1.3, y: -1.0, size: 0.7, phase: 3.1 },
+  { x: 1.5, y: -0.8, size: 0.8, phase: 4.4 },
+  { x: 0.2, y: 2.3, size: 1.0, phase: 2.3 },
+  { x: -2.4, y: 0.1, size: 0.6, phase: 5.2 },
+  { x: 2.5, y: 0.3, size: 0.7, phase: 0.9 },
+];
+/** 별 색: 낮의 부드러운 금색 / 밤의 밝게 빛나는 금색 */
+const STAR_COLORS = { body: "#e9b23c", glow: "#ffcf5c", ray: "#fff2b8" };
+
+/**
+ * 트리 꼭대기 별: 반짝반짝 빛납니다. (11.25 사용자 요청)
+ * 모두 가짜 빛입니다(진짜 조명 없음).
+ *  - 별 몸통: 스스로 빛나는 밝기가 숨 쉬듯 커졌다 작아짐 (밤에는 빛 번짐 효과가 받아서 환하게 퍼짐)
+ *  - 큰 빛살(✦): 별 뒤에서 천천히 돌며 커졌다 작아짐
+ *  - 작은 반짝임들: 별 둘레에서 저마다 다른 박자로 깜빡임
+ * 별 모양을 교체할 때는 이 함수만 바꾸면 됩니다.
+ */
 function StarShape() {
   const geometry = useMemo(() => createStarGeometry(), []);
+  const night = useNight();
+  const body = useRef<THREE.Mesh>(null);
+  const rays = useRef<THREE.Sprite>(null);
+  const twinkles = useRef<(THREE.Sprite | null)[]>([]);
+  // 낮에는 밝은 하늘 위라서 빛을 "더하는" 방식이 잘 안 보입니다 → 낮은 보통 방식, 밤은 더하는 방식
+  const blending = night ? THREE.AdditiveBlending : THREE.NormalBlending;
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    // 숨 쉬듯 천천히 + 가끔 빠르게 반짝 (두 박자를 섞어 기계적이지 않게)
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+    const flick = Math.max(0, Math.sin(t * 5.3 + 1)) ** 6;
+    const shine = 0.55 * pulse + 0.45 * flick; // 0~1
+
+    if (body.current) {
+      const material = body.current.material as THREE.MeshStandardMaterial;
+      material.emissiveIntensity = (night ? 1.3 : 0.4) + shine * (night ? 1.6 : 0.5);
+      // 별이 좌우로 천천히 돌아 여러 각도에서 반짝여 보입니다
+      body.current.rotation.y = Math.sin(t * 0.6) * 0.5;
+    }
+    if (rays.current) {
+      rays.current.scale.setScalar(4.2 + shine * 3.2);
+      rays.current.material.rotation = t * 0.35;
+      rays.current.material.opacity = (night ? 0.55 : 0.75) + shine * 0.3;
+    }
+    twinkles.current.forEach((sprite, i) => {
+      if (!sprite) return;
+      const { size, phase } = TWINKLES[i];
+      // 대부분은 꺼져 있다가 잠깐씩 반짝 켜집니다
+      const on = Math.max(0, Math.sin(t * 2.6 + phase)) ** 4;
+      sprite.scale.setScalar(size * (0.3 + on));
+      sprite.material.opacity = on;
+      sprite.material.rotation = phase + t * 0.5;
+    });
+  });
+
   return (
-    <mesh geometry={geometry} position={[0, TREE_HEIGHT + 0.6, 0]} scale={1.6}>
-      {/* KayKit 별과 비슷한 부드러운 금색, 윤기 적게 */}
-      <meshStandardMaterial color="#e9b23c" emissive="#c98a1b" emissiveIntensity={0.35} roughness={0.6} />
-    </mesh>
+    <group position={[0, TREE_HEIGHT + 0.6, 0]}>
+      {/* 큰 십자 빛살 */}
+      <sprite ref={rays} scale={5}>
+        <spriteMaterial map={sparkle()} color={STAR_COLORS.ray} transparent opacity={0.7} blending={blending} depthWrite={false} toneMapped={false} />
+      </sprite>
+      {/* 별 몸통 */}
+      <mesh ref={body} geometry={geometry} scale={1.6}>
+        <meshStandardMaterial color={STAR_COLORS.body} emissive={STAR_COLORS.glow} emissiveIntensity={0.6} roughness={0.5} />
+      </mesh>
+      {/* 둘레의 작은 반짝임들 */}
+      {TWINKLES.map((tw, i) => (
+        <sprite
+          key={i}
+          ref={(el) => {
+            twinkles.current[i] = el;
+          }}
+          position={[tw.x, tw.y, 0.4]}
+          scale={tw.size}
+        >
+          <spriteMaterial map={sparkle()} color={STAR_COLORS.ray} transparent opacity={0} blending={blending} depthWrite={false} toneMapped={false} />
+        </sprite>
+      ))}
+    </group>
   );
 }
 
@@ -447,12 +704,13 @@ export function Decorations({ level, slots }: DecorationsProps) {
     <group>
       {keys.has("string_lights") && <StringLights />}
       <AmbientProps />
-      {ORNAMENT_KEYS.filter((k) => keys.has(k)).map((kind) =>
+      {ORNAMENT_KEYS.filter((k) => keys.has(ORNAMENT_STAGE[k])).map((kind) =>
         ORNAMENT_SLOTS[kind].map((slot, i) => <Ornament key={`${kind}-${i}`} kind={kind} slot={slot} index={i} />),
       )}
       {keys.has("house_decor") && <HouseDecor slots={slots} />}
       {keys.has("santa_rudolph") && <SantaRudolph />}
       {keys.has("tree_garland") && <TreeGarland />}
+      {keys.has("tree_garland") && <TreeFairyLights />}
       {keys.has("star") && <StarAndFireworks />}
       <Gifts level={level} />
     </group>
