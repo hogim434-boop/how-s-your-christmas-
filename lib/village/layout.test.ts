@@ -4,13 +4,17 @@ import {
   HOUSE_FOOTPRINT,
   MAILBOX_OFFSET,
   PLAZA_CENTER,
+  hiddenByTree,
   houseSlots,
+  ringCapacity,
+  ringRadius,
+  ringRadiusAt,
 } from "./layout";
 
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
 
-describe.each([1, 6, 12, 20])("houseSlots(%i)", (n) => {
+describe.each([1, 6, 8, 9, 20, 44])("houseSlots(%i)", (n) => {
   const slots = houseSlots(n);
 
   it("집 개수가 n과 같다", () => {
@@ -55,16 +59,53 @@ describe.each([1, 6, 12, 20])("houseSlots(%i)", (n) => {
   });
 });
 
-describe("houseSlots 정면 우선", () => {
-  it("0번 집은 카메라 쪽(+z) 정면 근처에 있고, 정면 한가운데는 비어 있다", () => {
-    for (const n of [1, 2, 6, 12]) {
-      const [first] = houseSlots(n);
-      expect(first.z).toBeGreaterThan(0);
-      for (const s of houseSlots(n)) {
-        // 정면 한가운데(x가 0에 가까운 곳)에는 집이 없어야 함
-        expect(Math.abs(s.x)).toBeGreaterThan(1);
-      }
+describe("houseSlots 채우는 순서 (11.25: 화면 위쪽부터, 원은 8 → 10 → 12 → 14채)", () => {
+  it("정면 한가운데(카메라 바로 앞)는 항상 비어 있다", () => {
+    for (const s of houseSlots(44)) expect(s.x === 0 && s.z > 0).toBe(false);
+    for (const s of houseSlots(44)) {
+      if (s.z > 0) expect(Math.abs(s.x)).toBeGreaterThan(1);
     }
+  });
+
+  it("첫 집은 화면 위쪽(뒤쪽, -z)이면서 트리에 가려지지 않는 자리다", () => {
+    const [first] = houseSlots(1);
+    expect(first.z).toBeLessThan(0);
+    expect(hiddenByTree(first.x, first.z)).toBe(false);
+  });
+
+  it("한 원 안에서는 트리에 안 가려지는 자리를 위쪽부터 채우고, 가려지는 자리는 마지막", () => {
+    const ring = houseSlots(8);
+    const visible = ring.filter((s) => !hiddenByTree(s.x, s.z));
+    const hidden = ring.filter((s) => hiddenByTree(s.x, s.z));
+    expect(ring.slice(0, visible.length)).toEqual(visible);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (let i = 1; i < visible.length; i++) {
+      expect(visible[i].z).toBeGreaterThanOrEqual(visible[i - 1].z - 1e-6);
+    }
+  });
+
+  it("원 크기: 8채가 차면 바깥 원(10채), 그다음 12채, 14채", () => {
+    expect([0, 1, 2, 3].map(ringCapacity)).toEqual([8, 10, 12, 14]);
+    const radiusOf = (s: { x: number; z: number }) => Math.round(Math.hypot(s.x, s.z));
+    const slots = houseSlots(8 + 10 + 12 + 14);
+    const counts = new Map<number, number>();
+    for (const s of slots) counts.set(radiusOf(s), (counts.get(radiusOf(s)) ?? 0) + 1);
+    expect([...counts.values()]).toEqual([8, 10, 12, 14]);
+    // 9번째 사람부터 바깥 원
+    expect(radiusOf(slots[8])).toBeGreaterThan(radiusOf(slots[7]));
+  });
+
+  it("사람이 늘어도 이미 있던 집 자리는 그대로다", () => {
+    const before = houseSlots(9);
+    const after = houseSlots(20);
+    expect(after.slice(0, 9)).toEqual(before);
+  });
+
+  it("울타리 기준 반지름은 가장 바깥 원", () => {
+    expect(ringRadius(8)).toBe(ringRadiusAt(0));
+    expect(ringRadius(9)).toBe(ringRadiusAt(1));
+    expect(ringRadius(18)).toBe(ringRadiusAt(1));
+    expect(ringRadius(19)).toBe(ringRadiusAt(2));
   });
 });
 

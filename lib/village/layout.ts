@@ -161,16 +161,30 @@ export function lampPositions(): { x: number; z: number }[] {
   });
 }
 
-/** 집이 놓이는 원의 가장 작은 반지름 */
+/** 첫 번째 집 원의 반지름 */
 export const MIN_HOUSE_RING_RADIUS = 15;
+/** 바깥 원은 안쪽 원보다 이만큼 뒤(바깥)에 놓습니다 (집 크기 + 우체통 + 걸어 다닐 길) */
+export const RING_GAP = 12;
 
 /**
- * 카메라가 있는 쪽 방향각(라디안). 좌표 (sin a, cos a)에서 a=0이면 +z(화면 쪽)입니다.
- * 대왕 트리 "바로 뒤"는 이 각도에서 180도 반대쪽입니다.
+ * 원 하나에 들어가는 집 수. 첫 원 8채, 그다음 10 → 12 → 14 … (2채씩 늘어남)
+ * (11.25 사용자 요청: 8채가 원을 이룬 뒤 사람이 늘면 뒤쪽에 새 원을 만들기)
  */
-const FRONT_ANGLE = 0;
-/** 트리 바로 뒤쪽에서 비워 두는 각도 범위(전체 폭). 집이 트리에 가려지지 않게 합니다. */
+export function ringCapacity(ring: number): number {
+  return 8 + 2 * ring;
+}
+
+/** ring번째 원(0부터)의 반지름 */
+export function ringRadiusAt(ring: number): number {
+  return MIN_HOUSE_RING_RADIUS + ring * RING_GAP;
+}
+
+/** 트리 바로 뒤쪽에서 비워 두는 각도 범위(전체 폭). 이 자리의 집은 트리에 완전히 가려집니다. */
 const BACK_GAP = Math.PI / 4; // 45도
+/** 정면에서 한쪽으로 최대로 퍼질 수 있는 각도 (뒤쪽 빈 구간의 절반만큼 못 미침) */
+const MAX_SPREAD = Math.PI - BACK_GAP / 2;
+/** 집 사이 각도 간격의 상한(라디안). 첫 원(8채)이 너무 뒤쪽까지 퍼지지 않게 합니다 */
+const MAX_STEP = 0.75;
 
 export type HouseSlot = {
   x: number;
@@ -181,32 +195,66 @@ export type HouseSlot = {
   mailbox: { x: number; z: number };
 };
 
-/** 집 사이 각도 간격의 상한(라디안). 집이 적을 때 뒤쪽까지 흩어지지 않게 정면 쪽에 모읍니다. */
-const MAX_STEP = 0.75;
-/** 정면에서 한쪽으로 최대로 퍼질 수 있는 각도 (뒤쪽 빈 구간의 절반만큼 못 미침) */
-const MAX_SPREAD = Math.PI - BACK_GAP / 2;
+/**
+ * 화면에서 대왕 트리에 가려지는지 대략 판단합니다.
+ * 트리 뒤쪽(-z)에 있고 좌우로 트리 폭(+집 반 폭) 안쪽이면 가려진다고 봅니다.
+ * 멀리 있는 집일수록 원근 때문에 트리가 더 넓게 가리므로 폭을 키웁니다.
+ */
+const TREE_HIDE_HALF_WIDTH = 7.5; // 트리 반지름(약 4.8) + 집 반 폭(약 2.7)
+const CAMERA_DEPTH = 30; // 카메라에서 트리까지 대략적인 거리
+export function hiddenByTree(x: number, z: number): boolean {
+  if (z >= 0) return false;
+  return Math.abs(x) < TREE_HIDE_HALF_WIDTH * (1 + -z / CAMERA_DEPTH);
+}
 
 /**
- * 집을 정면 좌우로 "반 칸씩 비켜" 놓습니다: 각도 = ±(칸 번호 + 0.5) × 간격.
- * 정면 한가운데를 비워 두는 이유: 카메라 바로 앞 집이 캐릭터를 가리지 않게 하기 위해서입니다.
- * maxRank: 한쪽 칸 번호의 최댓값 (0번 칸이 정면에 가장 가까움)
+ * ring번째 원의 집 자리들을 "채우는 순서대로" 돌려줍니다.
+ * - 자리: 정면(카메라 쪽) 한가운데를 비우고 좌우로 반 칸씩 비켜, 트리 바로 뒤 45도는 비워 둡니다
+ * - 순서: 화면 위쪽(뒤쪽, -z)부터. 단 트리에 가려지는 자리는 맨 마지막 (11.25 사용자 요청)
+ *   같은 높이면 왼쪽 먼저
  */
-function maxRank(count: number): number {
-  return Math.max(0, Math.ceil(count / 2) - 1);
+function ringSlots(ring: number): HouseSlot[] {
+  const capacity = ringCapacity(ring);
+  const radius = ringRadiusAt(ring);
+  const perSide = capacity / 2;
+  const step = Math.min(MAX_STEP, MAX_SPREAD / (perSide - 0.5));
+
+  const slots: HouseSlot[] = [];
+  for (let rank = 0; rank < perSide; rank++) {
+    for (const side of [-1, 1]) {
+      const angle = side * (rank + 0.5) * step;
+      const x = Math.sin(angle) * radius;
+      const z = Math.cos(angle) * radius;
+      // 집 앞면(+z)이 가운데를 보게 돌립니다. 가운데를 향하는 방향은 (-x, -z)
+      const rotation = Math.atan2(-x, -z);
+      // 우체통: 집에서 가운데 쪽으로 MAILBOX_OFFSET만큼
+      const mailbox = { x: x - (x / radius) * MAILBOX_OFFSET, z: z - (z / radius) * MAILBOX_OFFSET };
+      slots.push({ x, z, rotation, mailbox });
+    }
+  }
+  // 가려지지 않는 자리 먼저 → 그 안에서 화면 위쪽(z가 작은 쪽)부터 → 같으면 왼쪽(x가 작은 쪽)부터
+  const key = (s: HouseSlot) => [hiddenByTree(s.x, s.z) ? 1 : 0, Math.round(s.z * 1000), s.x] as const;
+  return slots.sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+  });
 }
 
-/** 이웃한 집 사이의 각도 간격 */
-function angleStep(count: number): number {
-  if (count <= 0) return 0;
-  return Math.min(MAX_STEP, MAX_SPREAD / (maxRank(count) + 0.5));
+/** 주민 n명이 쓰는 원의 개수 */
+export function ringCount(n: number): number {
+  let rings = 0;
+  let filled = 0;
+  while (filled < n) {
+    filled += ringCapacity(rings);
+    rings++;
+  }
+  return rings;
 }
 
-/** 집 n채를 놓을 원의 반지름. 집이 많을수록 커져서 서로 겹치지 않습니다. */
+/** 주민 n명일 때 가장 바깥 집 원의 반지름 (울타리·걸을 수 있는 범위·숲 위치의 기준) */
 export function ringRadius(n: number): number {
-  const step = angleStep(n);
-  // 이웃 집 사이 거리 = 2 × 반지름 × sin(간격/2) ≥ 집 크기 가 되도록 반지름을 정함
-  const needed = step > 0 ? HOUSE_FOOTPRINT / (2 * Math.sin(step / 2)) : 0;
-  return Math.max(MIN_HOUSE_RING_RADIUS, needed + 0.2);
+  return ringRadiusAt(Math.max(0, ringCount(n) - 1));
 }
 
 /** 울타리를 집 원보다 얼마나 바깥에 둘지. 집 뒤쪽으로도 걸어 다닐 공간이 생깁니다 (11.25 사용자 요청: 이동 범위 넓히기) */
@@ -225,31 +273,19 @@ export function walkRadius(n: number): number {
 }
 
 /**
- * 주민 수 n명의 집 자리를 돌려줍니다.
- * - 0번 집이 카메라 쪽 정면 왼쪽, 1번이 정면 오른쪽, 그 다음부터 좌우 번갈아 바깥으로 퍼집니다. (정면 한가운데는 비움)
- * - 트리 바로 뒤쪽 구간은 비워 둡니다.
+ * 주민 수 n명의 집 자리를 돌려줍니다. (0번이 가장 먼저 들어온 사람)
+ * - 첫 원 8채를 다 채우면 그 바깥(뒤)에 10채짜리 원, 그다음 12채, 14채 … 순서로 새 원을 만듭니다
+ * - 원 안에서는 화면 위쪽(트리에 안 가려지는 자리)부터 차례로 채웁니다
+ * - 자리는 미리 정해져 있어서, 사람이 늘어도 이미 있던 집은 움직이지 않습니다
  */
 export function houseSlots(n: number): HouseSlot[] {
   const count = Math.max(0, Math.floor(n));
-  const radius = ringRadius(count);
-  const step = angleStep(count);
-
   const slots: HouseSlot[] = [];
-  for (let i = 0; i < count; i++) {
-    const side = i % 2 === 1 ? 1 : -1; // 짝수 번호는 왼쪽, 홀수는 오른쪽
-    const rank = Math.floor(i / 2);
-    const angle = FRONT_ANGLE + side * (rank + 0.5) * step;
-
-    const x = Math.sin(angle) * radius;
-    const z = Math.cos(angle) * radius;
-    // 집 앞면(+z)이 가운데를 보게 돌립니다. 가운데를 향하는 방향은 (-x, -z)
-    const rotation = Math.atan2(-x, -z);
-    // 우체통: 집에서 가운데 쪽으로 MAILBOX_OFFSET만큼
-    const mailbox = {
-      x: x - (x / radius) * MAILBOX_OFFSET,
-      z: z - (z / radius) * MAILBOX_OFFSET,
-    };
-    slots.push({ x, z, rotation, mailbox });
+  for (let ring = 0; slots.length < count; ring++) {
+    for (const slot of ringSlots(ring)) {
+      if (slots.length >= count) break;
+      slots.push(slot);
+    }
   }
   return slots;
 }
