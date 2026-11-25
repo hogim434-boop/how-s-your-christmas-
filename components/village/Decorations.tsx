@@ -12,7 +12,7 @@ import { Kit } from "./Kit";
 import { BULB_COLORS, BulbString } from "./BulbString";
 import { InstancedKit, placement } from "./InstancedKit";
 import { NIGHT_GLOW, useNight } from "./nightContext";
-import { Firework } from "./Firework";
+import { Fireworks } from "./Firework";
 import { giftLayout, visibleStages, type DecorKey } from "@/lib/decor/decorTable";
 import {
   LAMP_TOP_Y,
@@ -489,11 +489,6 @@ function createStarGeometry(): THREE.ExtrudeGeometry {
   return geo;
 }
 
-const FIREWORKS = [
-  { offset: [-4.5, 3.5, 1] as [number, number, number], color: "#ff6b6b", delay: 0 },
-  { offset: [4.8, 5, 0] as [number, number, number], color: "#ffd45c", delay: 0.8 },
-];
-
 /** 십자 모양으로 뻗는 빛살 그림 (별이 반짝일 때의 ✦ 모양). 한 번만 만들어 둡니다 */
 let sparkleTexture: THREE.CanvasTexture | null = null;
 function sparkle() {
@@ -616,9 +611,8 @@ function StarAndFireworks() {
   return (
     <group>
       <StarShape />
-      {FIREWORKS.map((f, i) => (
-        <Firework key={i} position={[f.offset[0], TREE_HEIGHT + f.offset[1], f.offset[2]]} color={f.color} delay={f.delay} />
-      ))}
+      {/* 폭죽: 트리 뒤쪽 하늘 5곳에서 번갈아 터집니다 (모두 한 덩어리로 그림) */}
+      <Fireworks />
     </group>
   );
 }
