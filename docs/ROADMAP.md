@@ -102,7 +102,7 @@ How's your Christmas는 **일본 10~20대 여성과 그 친구들(한국 출시�
   - 그림 담당과 일정 확인: 집 디자인을 12.3보다 일찍 받을 수 있는지 → [결정 필요 D-04]
   - 완료 기준: 두 로그인의 앱 키(ID)를 받았고, 남은 심사·설정 항목이 목록으로 정리됨
 
-- **Task 002: 프로젝트 만들기와 빈 3D 화면 확인** - 우선순위 (약 0.5h)
+- **Task 002: 프로젝트 만들기와 빈 3D 화면 확인** - 우선순위 (약 0.5h) ✅ 완료 (11.25)
   - Next.js 16(App Router) + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui 프로젝트 생성 (PRD "기본 기술 구성")
   - 화면 주소(라우팅)는 **여기서 미리 만들지 않습니다.** UI/UX를 먼저 만들면서 화면 파일을 둘 때 주소가 함께 생기고(Task 004·005), 누구를 어디로 보낼지 정하는 이동 규칙은 로그인과 함께 만듭니다(Task 007). 화면 구성이 아직 바뀌는 중이라(커플 마을·캐릭터 꾸미기 등) 미리 만든 주소를 다시 고치는 일을 줄이기 위해서입니다.
   - 3D 마을 위에 뜨는 창(편지 쓰기·편지함·캐릭터 꾸미기)은 페이지가 아니라 **마을 화면 위 오버레이(겹쳐 뜨는 창)** 골격으로 만들기
@@ -110,6 +110,8 @@ How's your Christmas는 **일본 10~20대 여성과 그 친구들(한국 출시�
   - React Three Fiber로 빈 3D 캔버스가 휴대폰에서 뜨는지 확인, Vercel에 한 번 배포해 보기
   - 배포 후 **카카오 개발자 사이트의 사이트 도메인에 Vercel 주소 추가** (11.25에 `http://localhost:3000`만 등록해 둠. localhost는 지우지 않음). LINE 채널에도 같은 주소가 필요하면 함께 추가
   - 완료 기준: 첫 화면에 빈 3D 캔버스가 뜨고, 배포 주소가 휴대폰에서 열림
+  - ✅ 결과 (11.25): Next.js 16.4.6·React 19.3·TypeScript 5.9·Tailwind 4 프로젝트 생성, 빈 3D 첫 화면(`components/three/EmptyScene.tsx`), 문구 사전(`i18n/messages.ts`, 기본 일본어), 오버레이 뼈대(`components/overlay/Overlay.tsx`). GitHub `hogim434-boop/how-s-your-christmas-` → Vercel 자동 배포 `https://how-s-your-christmas.vercel.app`
+  - ⏳ 남은 일: 휴대폰 실기기 접속 확인, 카카오 사이트 도메인에 Vercel 주소 추가
 
 - **Task 003: 데이터 타입·데이터베이스 설계와 진행률 규칙 만들기** (약 1.5h)
   - TypeScript 타입 정의: User, Village, Resident, Letter, CoupleAnswer, NotificationLog (PRD "데이터 모델")

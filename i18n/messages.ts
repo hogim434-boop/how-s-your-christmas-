@@ -11,6 +11,8 @@ type Messages = {
   appName: string;
   /** 첫 화면 아래쪽 안내 문구 */
   tagline: string;
+  /** 겹쳐 뜨는 창의 닫기 버튼 (화면 읽기 도구용 이름) */
+  close: string;
 };
 
 // satisfies: "두 언어 모두 Messages 모양을 빠짐없이 지켰는지" 타입스크립트가 검사해 줍니다.
@@ -19,10 +21,12 @@ const messages = {
   ja: {
     appName: "How's your Christmas",
     tagline: "友だちと手紙を送り合って、村のツリーを飾ろう",
+    close: "閉じる",
   },
   ko: {
     appName: "How's your Christmas",
     tagline: "친구와 편지를 주고받으며 마을 트리를 꾸며요",
+    close: "닫기",
   },
 } satisfies Record<Locale, Messages>;
 
