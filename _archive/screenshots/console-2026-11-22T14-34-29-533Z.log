@@ -1,0 +1,12 @@
+[     374ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[     565ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[    1163ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[   53362ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[   53551ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[   54148ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[   82258ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[   82491ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[   83107ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[  128880ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[  129105ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[  129761ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364

@@ -1,0 +1,35 @@
+# 비밀 값 파일: GitHub에 올라가지 않게 막습니다
+.env
+.env*.local
+
+# 설치된 라이브러리·빌드 결과물 (다시 만들 수 있으므로 올리지 않음)
+node_modules/
+.next/
+out/
+dist/
+
+# 개인 설정·기타
+.claude/settings.local.json
+.DS_Store
+.playwright-mcp/
+
+# 테스트 결과물
+/coverage
+/build
+
+# 비밀 키 파일·로그 (Next.js 생성기 기본 규칙에서 가져옴)
+.env*
+!.env.example
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vercel 연결 정보·TypeScript 임시 파일
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# 작업 관리 도구(shrimp) 내부 기록
+shrimp_data/

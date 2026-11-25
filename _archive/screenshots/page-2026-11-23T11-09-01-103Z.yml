@@ -1,0 +1,26 @@
+- generic [ref=f13e3]:
+  - banner:
+    - generic:
+      - paragraph: 고등학교 친구들 마을
+      - paragraph: D-34
+      - paragraph: 크리스마스까지
+    - paragraph: 진행률 100%
+  - navigation "진행률 고르기" [ref=f13e7]:
+    - button "0%" [ref=f13e8] [cursor=pointer]
+    - button "10%" [ref=f13e9] [cursor=pointer]
+    - button "20%" [ref=f13e10] [cursor=pointer]
+    - button "30%" [ref=f13e11] [cursor=pointer]
+    - button "40%" [ref=f13e12] [cursor=pointer]
+    - button "50%" [ref=f13e13] [cursor=pointer]
+    - button "60%" [ref=f13e14] [cursor=pointer]
+    - button "70%" [ref=f13e15] [cursor=pointer]
+    - button "80%" [ref=f13e16] [cursor=pointer]
+    - button "90%" [ref=f13e17] [cursor=pointer]
+    - button "100%" [pressed] [ref=f13e18] [cursor=pointer]
+  - paragraph [ref=f13e19]:
+    - strong [ref=f13e20]: 100%
+    - text: 대왕별 + 폭죽
+    - generic [ref=f13e21]: · 선물 10개
+  - contentinfo:
+    - button "마을로 돌아가기" [ref=f13e22] [cursor=pointer]
+    - paragraph: 땅을 누르면 그곳으로 걸어가요

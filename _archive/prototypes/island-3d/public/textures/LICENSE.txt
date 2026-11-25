@@ -1,0 +1,6 @@
+textures/ 와 hdri/ 폴더의 파일은 모두 Poly Haven(https://polyhaven.com) 에서 받은 것입니다.
+라이선스: CC0 (출처 표시 없이 상업적으로도 자유롭게 쓸 수 있습니다)
+
+텍스처: snow_02, white_planks_clean, stacked_stone_wall, pine_bark,
+        weathered_brown_planks, dark_planks, cobblestone_floor_04 (1k, jpg)
+HDRI:   snowy_field, rural_winter_roadside (1k, hdr)

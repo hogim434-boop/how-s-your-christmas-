@@ -1,0 +1,322 @@
+/* 화면 전체를 꽉 채우고, 스크롤이 생기지 않게 합니다 */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  color: #fff6e5;
+  background: #232b52;
+  overflow: hidden;
+  /* 모바일에서 길게 눌러도 글자가 선택되지 않게 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 3D 화면이 들어가는 무대. 배경은 저녁 하늘 색입니다 */
+.stage {
+  position: relative;
+  height: 100%;
+  background: linear-gradient(#232b52 0%, #4b5290 55%, #e8a98f 100%);
+  touch-action: none;
+}
+
+/* 위쪽 정보 (D-day, 편지 수) */
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 28px 24px 0;
+  pointer-events: none; /* 글자 위를 눌러도 땅이 눌리게 */
+}
+
+.hud p {
+  margin: 0;
+}
+
+.hud-label {
+  font-size: 14px;
+  color: #c5ceec;
+}
+
+.hud-dday {
+  font-size: 44px;
+  line-height: 1.1;
+  color: #ffe9a8;
+}
+
+.hud-chip {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #34407a;
+  font-size: 15px;
+}
+
+/* 아래쪽 버튼/안내 */
+.actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  padding: 0 24px 32px;
+  pointer-events: none;
+}
+
+.action {
+  pointer-events: auto;
+  width: min(100%, 340px);
+  height: 56px;
+  border: 0;
+  border-radius: 18px;
+  background: #fff6e5;
+  color: #232b52;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #d9c9a8;
+}
+
+.action:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #d9c9a8;
+}
+
+.hint {
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(35, 43, 82, 0.75);
+  font-size: 15px;
+}
+
+/* 잠깐 떴다 사라지는 안내 문구 */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 112px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #232b52;
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 오른쪽 위: 편지 수 + 꾸미기 버튼 */
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.hud-button {
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff6e5;
+  color: #232b52;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* 꾸미기 패널 (아래에서 올라오는 시트) */
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 52%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 18px 20px 28px;
+  border-radius: 24px 24px 0 0;
+  background: #fff8ec;
+  color: #232b52;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  touch-action: pan-y;
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.sheet-done {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #232b52;
+  color: #fff6e5;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row-title {
+  margin: 0;
+  font-size: 14px;
+  color: #4a5478;
+}
+
+.swatches,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 3px solid #fff8ec;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d9cdb8;
+  font: inherit;
+  font-size: 11px;
+  color: #232b52;
+  cursor: pointer;
+}
+
+.swatch-default {
+  background: #ffffff;
+}
+
+/* 선택된 색은 테두리를 진하게 */
+.swatch[aria-pressed='true'] {
+  box-shadow: 0 0 0 3px #232b52;
+}
+
+.chip {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 2px solid #d9cdb8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #232b52;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: #232b52;
+  background: #232b52;
+  color: #fff6e5;
+}
+
+/* ───── 공유 마을 화면 (그림체 비교) ───── */
+
+/* 그림체 바꾸기 버튼 줄 */
+.style-switch {
+  position: absolute;
+  top: 132px;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  overflow-x: auto;
+}
+
+.style-switch .chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  text-decoration: none;
+}
+
+/* 지금 보고 있는 그림체는 진하게 */
+.style-switch .chip[aria-current='page'] {
+  border-color: #232b52;
+  background: #232b52;
+  color: #fff6e5;
+}
+
+/* 집 위에 뜨는 이름표 */
+.tag {
+  display: block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(35, 43, 82, 0.82);
+  color: #fff6e5;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 배경이 밝은 그림체에서는 글자를 어두운 색으로 */
+.on-light .hud-label {
+  color: #524d60;
+}
+
+.on-light .hud-dday {
+  color: #33303f;
+}
+
+.on-light .hud-chip {
+  background: #ffffff;
+  color: #33303f;
+}
+
+/* 진행률 버튼 아래의 "이 단계에서 생기는 장식" 설명 */
+.level-caption {
+  position: absolute;
+  top: 184px;
+  left: 24px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #232b52;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(35, 43, 82, 0.12);
+}
+
+.level-caption strong {
+  margin-right: 6px;
+}
+
+/* 오른쪽 위: 진행률 표시 + 낮/밤 버튼 */
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+}

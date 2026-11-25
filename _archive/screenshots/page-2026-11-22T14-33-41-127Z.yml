@@ -1,0 +1,26 @@
+- generic [ref=f6e3]:
+  - generic [ref=f6e4]:
+    - generic: 민지네
+    - generic: 준호네
+    - generic: 수아네
+    - generic: 내 집
+    - generic: 하나네
+    - generic: 도윤네
+  - banner:
+    - generic:
+      - paragraph: 고등학교 친구들 마을
+      - paragraph: D-34
+      - paragraph: 크리스마스까지
+    - paragraph: 장식 0개
+  - navigation "그림체 바꾸기" [ref=f6e7]:
+    - link "미니어처" [ref=f6e8] [cursor=pointer]:
+      - /url: "?style=diorama"
+    - link "빛 (밤)" [ref=f6e9] [cursor=pointer]:
+      - /url: "?style=light"
+    - link "사실적" [ref=f6e10] [cursor=pointer]:
+      - /url: "?style=real"
+    - link "노을" [ref=f6e11] [cursor=pointer]:
+      - /url: "?style=dusk"
+  - contentinfo:
+    - button "트리 전체 보기" [ref=f6e12] [cursor=pointer]
+    - paragraph: 땅을 누르면 그곳으로 걸어가요

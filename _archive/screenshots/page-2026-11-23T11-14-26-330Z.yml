@@ -1,0 +1,35 @@
+- generic [ref=f16e3]:
+  - generic [ref=f16e4]:
+    - generic: 민지네
+    - generic: 준호네
+    - generic: 수아네
+    - generic: 내 집
+    - generic: 하나네
+    - generic: 도윤네
+  - banner:
+    - generic:
+      - paragraph: 고등학교 친구들 마을
+      - paragraph: D-34
+      - paragraph: 크리스마스까지
+    - generic [ref=f16e7]:
+      - paragraph [ref=f16e8]: 진행률 100%
+      - button "☀️ 낮으로" [pressed] [ref=f16e9] [cursor=pointer]
+  - navigation "진행률 고르기" [ref=f16e10]:
+    - button "0%" [ref=f16e11] [cursor=pointer]
+    - button "10%" [ref=f16e12] [cursor=pointer]
+    - button "20%" [ref=f16e13] [cursor=pointer]
+    - button "30%" [ref=f16e14] [cursor=pointer]
+    - button "40%" [ref=f16e15] [cursor=pointer]
+    - button "50%" [ref=f16e16] [cursor=pointer]
+    - button "60%" [ref=f16e17] [cursor=pointer]
+    - button "70%" [ref=f16e18] [cursor=pointer]
+    - button "80%" [ref=f16e19] [cursor=pointer]
+    - button "90%" [ref=f16e20] [cursor=pointer]
+    - button "100%" [pressed] [ref=f16e21] [cursor=pointer]
+  - paragraph [ref=f16e22]:
+    - strong [ref=f16e23]: 100%
+    - text: 대왕별 + 폭죽
+    - generic [ref=f16e24]: · 선물 10개
+  - contentinfo:
+    - button "트리 전체 보기" [ref=f16e25] [cursor=pointer]
+    - paragraph: 땅을 누르면 그곳으로 걸어가요

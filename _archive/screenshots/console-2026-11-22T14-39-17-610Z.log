@@ -1,0 +1,16 @@
+[     404ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://192.168.3.40:5184/node_modules/.vite/deps/client-D7P7Zikj.js?v=7089909b:15558
+[     780ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://192.168.3.40:5184/@vite/client:364
+[    1368ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://192.168.3.40:5184/@vite/client:364
+[  437520ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://192.168.3.40:5184/node_modules/.vite/deps/client-D7P7Zikj.js?v=7089909b:15558
+[  437747ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://192.168.3.40:5184/@vite/client:364
+[  437812ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://192.168.3.40:5184/@vite/client:364
+[ 1458663ms] [LOG] [vite] server connection lost. Polling for restart... @ http://192.168.3.40:5184/@vite/client:1078
+[ 1458763ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://192.168.3.40:5184/node_modules/.vite/deps/client-D7P7Zikj.js?v=7089909b:15558
+[ 1458927ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459050ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459050ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459051ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459051ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459051ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459051ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://192.168.3.40:5184/@vite/client:364
+[ 1459066ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://192.168.3.40:5184/@vite/client:364

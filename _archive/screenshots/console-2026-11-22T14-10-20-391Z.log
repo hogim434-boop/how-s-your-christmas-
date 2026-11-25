@@ -1,0 +1,63 @@
+[      93ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[     201ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[     335ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     336ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     336ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     336ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     336ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     336ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[     349ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[  825172ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:15558
+[  825312ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[  825386ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[ 1294020ms] ReferenceError: realistic is not defined
+    at Character (http://localhost:5183/src/Character.tsx?t=1795357914272:87:3)
+    at Object.react_stack_bottom_frame (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:8445:13)
+    at ap (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:4152:13)
+    at Ea (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:5186:362)
+    at Su (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:5538:21)
+    at B (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:2982:55)
+    at rg (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7632:38)
+    at ng (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7551:26)
+    at Qp (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7542:7)
+    at Zm (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7334:48)
+[ 1294031ms] ReferenceError: realistic is not defined
+    at Character (http://localhost:5183/src/Character.tsx?t=1795357914272:87:3)
+    at Object.react_stack_bottom_frame (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:8445:13)
+    at ap (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:4152:13)
+    at Ea (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:5186:362)
+    at Su (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:5538:21)
+    at B (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:2982:55)
+    at rg (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7632:38)
+    at ng (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7551:26)
+    at Qp (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7542:7)
+    at Zm (http://localhost:5183/node_modules/.vite/deps/react-three-fiber.esm-DkOdHB0N.js?v=152d5dba:7334:48)
+[ 1294029ms] [WARNING] %s
+
+%s
+ An error occurred in the <CanvasImpl> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5183/@vite/client:364
+[ 1306123ms] [WARNING] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead. @ http://localhost:5183/@vite/client:364
+[ 1306325ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306326ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306326ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306326ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306326ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306327ms] [ERROR] Attempted to synchronously unmount a root while React was already rendering. React cannot finish unmounting the root until the current render has completed, which may lead to a race condition. @ http://localhost:5183/@vite/client:364
+[ 1306346ms] [WARNING] THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead. @ http://localhost:5183/@vite/client:364
+[ 1317912ms] NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.
+    at removeChildFromContainer (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:11160:123)
+    at runWithFiberInDEV (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:697:66)
+    at commitDeletionEffectsOnFiber (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:7456:7)
+    at recursivelyTraverseMutationEffects (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:7582:5)
+    at commitMutationEffectsOnFiber (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:7714:6)
+    at flushMutationEffects (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:9129:7)
+    at commitRoot (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:9087:390)
+    at completeRoot (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:9052:5)
+    at completeRootWhenReady (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:8553:4)
+    at performWorkOnRoot (http://localhost:5183/node_modules/.vite/deps/client-D7P7Zikj.js?v=152d5dba:8525:8)
+[ 1317910ms] [WARNING] %s
+
+%s
+ An error occurred in the <div> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5183/@vite/client:364
