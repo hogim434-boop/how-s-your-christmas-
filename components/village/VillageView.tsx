@@ -34,6 +34,8 @@ import {
   type DummySentLetter,
 } from "@/lib/dummy/letters";
 import { isLetterLocked } from "@/lib/letters/rules";
+import { loadDraft, saveDraft, type LetterDraft } from "@/lib/letters/drafts";
+import { DEFAULT_PAPER } from "@/lib/letters/papers";
 import { loadCharacterParts, saveCharacterParts } from "@/lib/character/parts";
 import type { CharacterParts } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
@@ -184,7 +186,7 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   const sentRows: SentLetterRow[] = sentLetters.flatMap((l) => {
     const recipient = village.residents.find((r) => r.id === l.recipientId);
     return recipient
-      ? [{ recipientId: l.recipientId, recipientName: recipient.name, content: l.content, edited: l.editedAt !== null }]
+      ? [{ recipientId: l.recipientId, recipientName: recipient.name, content: l.content, paper: l.paper, edited: l.editedAt !== null }]
       : [];
   });
 
@@ -194,6 +196,30 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   const writeTarget = overlay?.kind === "write" ? village.residents.find((r) => r.id === overlay.residentId) : undefined;
   // 그 친구에게 이미 보낸 편지가 있으면 "고치기" 모드가 됩니다
   const writeExisting = writeTarget ? sentLetters.find((l) => l.recipientId === writeTarget.id) : undefined;
+  // 편지 쓰기 창의 처음 상태: 고치기면 보낸 글·편지지, 새 편지면 빈 글·기본 편지지
+  const writeInitial: LetterDraft = {
+    content: writeExisting?.content ?? "",
+    paper: writeExisting?.paper ?? DEFAULT_PAPER,
+  };
+  // 그 친구에게 쓰다 만 글 (편지 쓰기 창은 열릴 때의 값만 씁니다)
+  const writeDraft = writeTarget ? loadDraft(id, writeTarget.id) : null;
+  // 쓰는 동안 글이 바뀔 때마다 임시 저장 (저장할 것이 없으면 지움)
+  const handleDraftChange = (draft: LetterDraft | null) => {
+    if (writeTarget) saveDraft(id, writeTarget.id, draft);
+  };
+  // 편지를 보냄: 목록에 넣고, 임시 글을 지우고, 창을 닫습니다
+  const handleLetterSubmit = (content: string, paper: LetterDraft["paper"]) => {
+    if (!writeTarget) return;
+    updateSentLetters(upsertLetter(sentLetters, writeTarget.id, content, paper, new Date()));
+    saveDraft(id, writeTarget.id, null);
+    setOverlay(null);
+    showToast(writeExisting ? t.letterEdited : t.letterSent);
+  };
+  // 편지 쓰기 창을 그냥 닫음: 쓰던 글이 임시 저장돼 있으면 알려 줍니다 (글이 사라지지 않았다는 안심)
+  const closeWrite = () => {
+    if (writeTarget && loadDraft(id, writeTarget.id)) showToast(t.letterDraftSaved);
+    setOverlay(null);
+  };
   const overlayOpen = overlay !== null;
 
   // 말풍선 버튼 글자. 창이 열려 있거나 트리 전체 보기 중이면 숨깁니다
@@ -290,21 +316,21 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
       {/* 겹침 창들 (Overlay 뼈대 재사용) */}
       <Overlay
         open={overlay?.kind === "write"}
-        onClose={closeOverlay}
+        onClose={closeWrite}
         title={t.writeLetterTitle.replace("{name}", writeTarget?.name ?? "")}
+        // 편지 쓰기는 넓은 자리가 필요해서 화면을 거의 다 덮는 큰 창으로 엽니다 (잠금 뒤 안내만 보일 땐 작게)
+        size={locked ? "full" : "auto"}
       >
         {writeTarget && (
           <LetterForm
             toName={writeTarget.name}
             fromName={me?.name ?? ""}
-            initialContent={writeExisting?.content ?? ""}
+            initial={writeInitial}
+            draft={writeDraft}
             mode={writeExisting ? "edit" : "new"}
             closed={!locked}
-            onSubmit={(content) => {
-              updateSentLetters(upsertLetter(sentLetters, writeTarget.id, content, new Date()));
-              closeOverlay();
-              showToast(writeExisting ? t.letterEdited : t.letterSent);
-            }}
+            onDraftChange={handleDraftChange}
+            onSubmit={handleLetterSubmit}
           />
         )}
       </Overlay>
