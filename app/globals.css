@@ -8,6 +8,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
+  /* 화면 글꼴: 일본어(ja) 우선, 그 다음 한국어(ko). 로케일별로 글자 모양이 안 겹쳐서 한 줄로 충분합니다 */
+  --font-ui: var(--font-ja), var(--font-ko), var(--font-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -125,6 +127,18 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    /* 일본어·한국어 둥근 글꼴을 먼저 쓰고, 없는 글자는 기본 글꼴로 */
+    font-family: var(--font-ui);
+  }
+}
+/* 우체통 위 "편지 쓰기" 말풍선이 톡 튀어나오는 움직임 (MailboxPrompt.tsx) */
+@keyframes prompt-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
