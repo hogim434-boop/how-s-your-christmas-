@@ -15,6 +15,8 @@ import { buildObstacles, resolveCollisions } from "@/lib/village/collision";
 import { PLAYER_START, type HouseSlot } from "@/lib/village/layout";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
 import { markShowThrough } from "./showThrough";
+import { useNight } from "./nightContext";
+import { softDot } from "./particles";
 
 const MODEL_URL = "/models/character/Rogue.glb";
 /** 걷는 속도 (3D 길이 단위/초) */
@@ -44,9 +46,12 @@ interface PlayerProps {
   slots: HouseSlot[];
   /** 마을 경계 반지름 (이 안에서만 걸을 수 있음) */
   boundsRadius: number;
+  /** 땅 높이. 눈 둔덕을 오르내리며 걷도록 발 높이를 맞춥니다 */
+  heightAt: (x: number, z: number) => number;
 }
 
-export function Player({ target, slots, boundsRadius }: PlayerProps) {
+export function Player({ target, slots, boundsRadius, heightAt }: PlayerProps) {
+  const night = useNight();
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(MODEL_URL);
 
@@ -135,12 +140,21 @@ export function Player({ target, slots, boundsRadius }: PlayerProps) {
     }
     g.position.x = next.x;
     g.position.z = next.z;
+    // 둔덕 높이에 발을 맞춥니다 (계산은 이 한 점뿐이라 가볍습니다)
+    g.position.y = heightAt(next.x, next.z);
     setWalking(true);
   });
 
   return (
     <group ref={group} name={PLAYER_OBJECT_NAME} position={[PLAYER_START.x, 0, PLAYER_START.z]} scale={PLAYER_SCALE}>
       <primitive object={model} />
+      {/* 밤: 발밑의 둥근 그림자 (달빛 그림자를 매번 다시 그리지 않으려고 캐릭터 그림자는 이걸로 대신합니다) */}
+      {night && (
+        <mesh position={[0, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
+          <planeGeometry args={[1.3, 1.3]} />
+          <meshBasicMaterial map={softDot()} color="#0b1030" transparent opacity={0.55} depthWrite={false} />
+        </mesh>
+      )}
     </group>
   );
 }

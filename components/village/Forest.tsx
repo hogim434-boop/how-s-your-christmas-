@@ -32,12 +32,14 @@ function seededRandom(seed: number) {
 interface ForestProps {
   /** 울타리 반지름. 숲은 이 바깥에 만듭니다. */
   villageRadius: number;
+  /** 땅 높이 (나무를 언덕 위에 세우기 위해). 살짝 묻히도록 0.1만큼 내려 놓습니다 */
+  heightAt: (x: number, z: number) => number;
 }
 
-export function Forest({ villageRadius }: ForestProps) {
+export function Forest({ villageRadius, heightAt }: ForestProps) {
   const trees = useMemo(() => {
     const rand = seededRandom(1225);
-    const list: { x: number; z: number; scale: number; rot: number }[] = [];
+    const list: { x: number; y: number; z: number; scale: number; rot: number }[] = [];
     for (let i = 0; i < TREE_COUNT; i++) {
       const angle = rand() * Math.PI * 2;
       const radius = villageRadius + 3 + rand() * 24;
@@ -45,10 +47,10 @@ export function Forest({ villageRadius }: ForestProps) {
       const z = Math.cos(angle) * radius;
       // 카메라가 있는 앞쪽(+z) 반쪽은 숲을 만들지 않습니다. (큰 나무가 화면 아래를 가리지 않게)
       if (z > villageRadius * 0.15) continue;
-      list.push({ x, z, scale: 2.8 + rand() * 2, rot: rand() * Math.PI * 2 });
+      list.push({ x, y: Math.max(0, heightAt(x, z) - 0.1), z, scale: 2.8 + rand() * 2, rot: rand() * Math.PI * 2 });
     }
     return list;
-  }, [villageRadius]);
+  }, [villageRadius, heightAt]);
 
   // 모델 안의 부품(잎+눈, 줄기)마다 "모양·재질"을 꺼내 둡니다
   const { scene } = useGLTF(MODEL_URL);
@@ -79,7 +81,7 @@ export function Forest({ villageRadius }: ForestProps) {
 interface ForestPartProps {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
-  trees: { x: number; z: number; scale: number; rot: number }[];
+  trees: { x: number; y: number; z: number; scale: number; rot: number }[];
 }
 
 /** 부품 하나(예: 잎)를 모든 나무 자리에 한 번에 그립니다 */
@@ -94,7 +96,7 @@ function ForestPart({ geometry, material, trees }: ForestPartProps) {
     const up = new THREE.Vector3(0, 1, 0);
     trees.forEach((t, i) => {
       q.setFromAxisAngle(up, t.rot);
-      m.compose(new THREE.Vector3(t.x, 0, t.z), q, new THREE.Vector3(t.scale, t.scale, t.scale));
+      m.compose(new THREE.Vector3(t.x, t.y, t.z), q, new THREE.Vector3(t.scale, t.scale, t.scale));
       mesh.setMatrixAt(i, m);
     });
     mesh.instanceMatrix.needsUpdate = true;
