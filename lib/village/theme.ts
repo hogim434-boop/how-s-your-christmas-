@@ -49,4 +49,10 @@ export const LAMP_LIGHT_COLOR = "#ffc98a";
 export const UI_COLORS = {
   navy: "#232b52",
   cream: "#fff6e5",
+  /** 창 안의 옅은 회색 바탕 (입력칸·목록·고르기 버튼 묶음) */
+  surface: "#f3f4f8",
+  /** 덜 중요한 설명 글자 */
+  muted: "#6d7388",
+  /** 강조색: 크리스마스 빨강 (진행률 막대, 지우기) */
+  accent: "#c8324a",
 } as const;
