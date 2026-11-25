@@ -23,22 +23,20 @@ export const VILLAGE_COLORS = {
   sentLight: "#ffd45c",
 } as const;
 
-/** 하늘 종류: 아침 / 노을 / 밤 (11.25 사용자 요청: 메뉴에서 셋 중 고르기) */
-export type SkyMode = "day" | "dusk" | "night";
-export const SKY_MODES: readonly SkyMode[] = ["day", "dusk", "night"];
+/** 하늘 종류: 아침 / 밤 (11.25 사용자 요청: 메뉴에서 고르기) */
+export type SkyMode = "day" | "night";
+export const SKY_MODES: readonly SkyMode[] = ["day", "night"];
 
 /**
- * 아침·노을·밤 하늘. (11.25 사용자 요청: 메뉴에서 셋 중 고르기)
+ * 아침·밤 하늘. (11.25 사용자 요청: 메뉴에서 고르기)
  * - sky: 배경·안개 색 (멀리 있는 숲·땅이 이 색으로 흐려집니다)
  * - fog: 안개가 시작되는 거리, 완전히 덮는 거리
  * - lightText: true면 위쪽 글자(D-day 등)를 밝은 색으로
- * 빛·날씨는 각각 아침 = VillageScene, 노을 = DuskAtmosphere.tsx, 밤 = NightAtmosphere.tsx 에 있습니다.
+ * 빛·날씨는 각각 아침 = VillageScene, 밤 = NightAtmosphere.tsx 에 있습니다.
  */
 export const SKY_THEMES = {
   /** 아침: 지금까지의 밝은 미니어처 */
   day: { sky: "#eaf3fc", fog: [55, 135] as [number, number], lightText: false },
-  /** 노을: 예전 시안 "사실적 노을"의 하늘·빛 (분홍빛 보라 안개) */
-  dusk: { sky: "#b79bb5", fog: [22, 95] as [number, number], lightText: true },
   /** 밤: 예전 시안 "미니어처 밤" (짙은 남색 밤하늘) */
   night: { sky: "#1c2550", fog: [44, 120] as [number, number], lightText: true },
 } as const;

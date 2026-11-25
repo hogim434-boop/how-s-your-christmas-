@@ -1,2 +1,0 @@
-rural_winter_roadside.hdr — Poly Haven (https://polyhaven.com/a/rural_winter_roadside), CC0 (출처 표기 불필요)
-밤(노을) 모드에서 하늘빛 반사광으로 씁니다. 예전 시안(_archive/prototypes/island-3d/public/hdri)에서 옮겨 왔습니다.

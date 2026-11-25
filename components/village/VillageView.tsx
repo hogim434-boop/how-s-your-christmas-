@@ -46,7 +46,7 @@ type OverlayState =
   | { kind: "menu" };
 
 export default function VillageView({ id, options, level, treeView }: VillageViewProps) {
-  // 화면 언어와 하늘(아침·노을·밤): 메뉴에서 바꾸고, 이 브라우저에 기억해 둡니다 (11.25 사용자 요청)
+  // 화면 언어와 하늘(아침·밤): 메뉴에서 바꾸고, 이 브라우저에 기억해 둡니다 (11.25 사용자 요청)
   // (이 화면은 브라우저에서만 그려져서, 처음 값을 바로 저장 공간에서 읽어도 서버와 어긋나지 않습니다)
   const [locale, setLocale] = useState<Locale>(loadLocale);
   const [sky, setSky] = useState<SkyMode>(loadSky);
@@ -276,7 +276,7 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
         labels={{
           title: t.menu,
           skyMode: t.skyMode,
-          skyNames: { day: t.skyDay, dusk: t.skyDusk, night: t.skyNight },
+          skyNames: { day: t.skyDay, night: t.skyNight },
           language: t.language,
           logout: t.logout,
           comingSoon: t.appComingSoon,

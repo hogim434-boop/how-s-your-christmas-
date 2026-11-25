@@ -63,7 +63,6 @@ type Messages = {
   /** 메뉴: 하늘(시간대) 고르기와 세 가지 이름 */
   skyMode: string;
   skyDay: string;
-  skyDusk: string;
   skyNight: string;
   /** 메뉴: 언어 고르기 */
   language: string;
@@ -109,7 +108,6 @@ const messages = {
     logout: "ログアウト",
     skyMode: "空",
     skyDay: "朝",
-    skyDusk: "夕焼け",
     skyNight: "夜",
     language: "言語",
     logoutPlaceholder: "ログアウトは後で作ります(仮)",
@@ -149,7 +147,6 @@ const messages = {
     logout: "로그아웃",
     skyMode: "하늘",
     skyDay: "아침",
-    skyDusk: "노을",
     skyNight: "밤",
     language: "언어",
     logoutPlaceholder: "로그아웃은 나중에 만들어요 (임시)",

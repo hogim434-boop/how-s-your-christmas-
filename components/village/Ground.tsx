@@ -16,9 +16,9 @@ interface GroundProps {
 }
 
 export function Ground({ radius, onGroundPointerDown }: GroundProps) {
-  // 밤(노을)에는 스스로 빛나는 효과(emissive)를 끕니다.
+  // 밤에는 스스로 빛나는 효과(emissive)를 끕니다.
   // 낮에는 눈을 하얗게 보이려고 켜 두지만, 밤에는 이 빛이 "빛 번짐" 효과에 걸려 화면 전체가 뿌옇게 됩니다.
-  // (11.25 수정: 캐릭터가 뿌옇게 보이던 원인) 시안의 노을 눈밭도 스스로 빛나지 않습니다.
+  // (11.25 수정: 캐릭터가 뿌옇게 보이던 원인) 시안의 밤 눈밭도 스스로 빛나지 않습니다.
   const night = useNight();
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     onGroundPointerDown?.({ x: e.point.x, y: e.point.y, z: e.point.z });

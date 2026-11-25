@@ -1,6 +1,6 @@
 "use client";
 
-// 지금 "불이 켜지는 시간"(노을·밤)인지를 3D 장면 곳곳(전구 줄, 가로등, 땅 등)에 나눠 주는 통로(context)입니다.
+// 지금 밤(불이 켜지는 시간)인지를 3D 장면 곳곳(전구 줄, 가로등, 땅 등)에 나눠 주는 통로(context)입니다.
 // VillageScene이 값을 정하고, 아래 부품은 useNight()로 꺼내 씁니다.
 
 
@@ -8,7 +8,7 @@ import { createContext, useContext } from "react";
 
 export const NightContext = createContext(false);
 
-/** 지금 불이 켜지는 시간(노을·밤)인지 */
+/** 지금 밤인지 */
 export function useNight() {
   return useContext(NightContext);
 }

@@ -20,10 +20,11 @@ import { MailboxPromptProjector } from "./MailboxPrompt";
 import type { Spot } from "@/lib/village/proximity";
 import { FENCE_INNER_GAP, FENCE_MARGIN, type HouseSlot } from "@/lib/village/layout";
 import { SKY_THEMES, VILLAGE_COLORS, type SkyMode } from "@/lib/village/theme";
-import { DuskAtmosphere } from "./DuskAtmosphere";
 import { ShadowFlags } from "./ShadowFlags";
 import { NightContext } from "./nightContext";
 import { NightAtmosphere } from "./NightAtmosphere";
+import { VillageSnow } from "./VillageSnow";
+import { ChimneySmoke } from "./ChimneySmoke";
 import { SkyEffects } from "./SkyEffects";
 import type { DummyResident } from "@/lib/dummy/village";
 
@@ -45,7 +46,7 @@ interface VillageSceneProps {
   walkTarget: WalkTarget | null;
   /** true면 카메라가 트리 전체를 보여 주는 자리로 이동 */
   treeView: boolean;
-  /** 하늘: 아침 / 노을 / 밤 */
+  /** 하늘: 아침 / 밤 */
   sky: SkyMode;
   onMailboxSelect: (residentId: string) => void;
   /** 우체통 자리 목록 (가까이 가면 뜨는 "편지 쓰기" 버튼용) */
@@ -80,7 +81,7 @@ export default function VillageScene({
       camera={{ fov: CAMERA_FOV, near: 0.5, far: 300 }}
       // stencil: 반투명한 집 뒤의 우체통·캐릭터를 또렷하게 보이게 하는 "도장 판"을 켭니다 (showThrough.ts)
       gl={{ stencil: true }}
-      // shadows: 그림자 기능 켜기. 실제 그림자는 밤(노을)의 해만 만듭니다 (낮에는 그림자 계산 없음)
+      // shadows: 그림자 기능 켜기. 실제 그림자는 밤의 달빛만 만듭니다 (낮에는 그림자 계산 없음)
       shadows
     >
       {/* 장면 안의 전구·가로등이 지금 밤인지 알 수 있게 합니다 */}
@@ -94,23 +95,20 @@ export default function VillageScene({
           {/* 아침 조명: 그림자 없이 은은한 하늘빛 + 해 방향 빛 (휴대폰 성능을 위해) */}
           <hemisphereLight args={["#ffffff", "#dbe6f2", 2.0]} />
           <directionalLight position={[8, 16, 10]} intensity={1.1} />
+          {/* 아침에도 내리는 눈 (시안 미니어처: 흰색, 불투명도 0.75) */}
+          <VillageSnow villageRadius={villageRadius + FENCE_MARGIN} color="#ffffff" opacity={0.75} />
         </>
       ) : (
         <>
-          {/* Suspense: 하늘 사진(HDRI) 등 파일을 받는 동안 기다림 */}
+          {/* Suspense: 별 등 준비하는 동안 기다림 */}
           <Suspense fallback={null}>
-            {sky === "dusk" ? (
-              // 노을 = 예전 시안 "사실적 노을"의 하늘·빛·날씨
-              <DuskAtmosphere villageRadius={villageRadius + FENCE_MARGIN} slots={slots} />
-            ) : (
-              // 밤 = 예전 시안 "미니어처 밤"
-              <NightAtmosphere villageRadius={villageRadius + FENCE_MARGIN} slots={slots} />
-            )}
+            {/* 밤 = 예전 시안 "미니어처 밤" */}
+            <NightAtmosphere villageRadius={villageRadius + FENCE_MARGIN} slots={slots} />
           </Suspense>
           {/* 그림자를 만들고 받을 물체 표시 */}
           <ShadowFlags />
           {/* 빛 번짐 등 화면 필터 */}
-          <SkyEffects mode={sky} />
+          <SkyEffects />
         </>
       )}
 
@@ -149,6 +147,8 @@ export default function VillageScene({
         })}
 
         <Decorations level={level} slots={slots} />
+        {/* 집집마다 굴뚝 연기 (아침·밤 모두) */}
+        <ChimneySmoke slots={slots.slice(0, residents.length)} sky={sky} />
         {/* 걸을 수 있는 범위: 울타리 바로 안쪽까지 */}
         <Player target={walkTarget} slots={slots} boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP} />
         <TapMarker target={walkTarget} />
