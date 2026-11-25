@@ -13,6 +13,7 @@
 //   - 모든 폭죽의 모든 불꽃(약 2,300개의 점)을 "한 덩어리"로 묶어 한 번에 그립니다
 //   - 불꽃의 움직임은 그래픽 카드가 계산합니다. 우리는 매 장면 "지금 시각" 숫자 하나만 넘겨 줍니다
 //     💡 셰이더(shader): 그래픽 카드에서 돌아가는 작은 프로그램. 점 하나하나의 위치·색을 아주 빠르게 계산합니다
+//   - 휴대폰에서는 쏘는 자리를 7곳 → 5곳, 불꽃·꼬리 점도 줄여 전체 점을 절반 이하로 그립니다
 //   - 진짜 조명은 쓰지 않습니다. 번쩍임도 밝은 점 하나로 표현합니다 (가짜 빛)
 
 import { useMemo, useRef } from "react";
@@ -72,8 +73,15 @@ function seededRandom(seed: number) {
   };
 }
 
-/** 모든 폭죽의 점 정보를 한 덩어리(geometry)로 만듭니다. 한 번만 계산합니다 */
-function buildGeometry(): THREE.BufferGeometry {
+/** 휴대폰용 가벼운 폭죽: 쏘는 자리 수, 불꽃 수 비율, 꼬리에서 빼는 점 수 */
+const LITE = { shells: 5, heads: 0.7, trailCut: 1 };
+
+/**
+ * 모든 폭죽의 점 정보를 한 덩어리(geometry)로 만듭니다. 한 번만 계산합니다.
+ * lite = true면 휴대폰용으로 점을 절반 이하로 줄입니다.
+ * 💡 휴대폰 그래픽 칩은 "반투명한 점을 여러 겹 겹쳐 칠하는 일"에 약합니다. 점 수를 줄이면 칠하는 양이 그만큼 줄어듭니다.
+ */
+function buildGeometry(lite: boolean): THREE.BufferGeometry {
   const dir: number[] = []; // 퍼지는 방향 (position 자리에 넣음)
   const shell: number[] = []; // [폭죽 번호, 시작 어긋남, 주기, 점 종류]
   const burst: number[] = []; // 터지는 위치
@@ -82,8 +90,12 @@ function buildGeometry(): THREE.BufferGeometry {
   const phys: number[] = []; // [퍼지는 크기, 처지는 세기, 떠 있는 시간]
   const random = seededRandom(1225);
 
-  SHELLS.forEach((s, index) => {
-    const shape = SHAPES[s.shape];
+  const shells = lite ? SHELLS.slice(0, LITE.shells) : SHELLS;
+  shells.forEach((s, index) => {
+    const full = SHAPES[s.shape];
+    const shape = lite
+      ? { ...full, heads: Math.round(full.heads * LITE.heads), trail: Math.max(2, full.trail - LITE.trailCut) }
+      : full;
     const burstAt = [s.x, TREE_HEIGHT + s.height, s.z];
     // 땅에서는 터지는 자리보다 조금 안쪽에서 출발 → 바깥으로 살짝 기울어 올라갑니다
     const originAt = [s.x * 0.7, 0.5, s.z];
@@ -101,8 +113,8 @@ function buildGeometry(): THREE.BufferGeometry {
     // ② 번쩍임 (큰 점 하나)
     add([0, 0, 0], KIND.flash, 0, 9, 0);
 
-    // ③ 퍼지는 불꽃. 고리 모양은 바깥 56개는 기울어진 원 위에, 안쪽 32개는 작은 공 모양으로
-    const ringCount = s.shape === "ring" ? 56 : 0;
+    // ③ 퍼지는 불꽃. 고리 모양은 바깥 약 3분의 2는 기울어진 원 위에, 나머지 안쪽은 작은 공 모양으로
+    const ringCount = s.shape === "ring" ? Math.round(shape.heads * 0.64) : 0;
     // 고리가 기울어진 정도 (정면에서 봤을 때 타원으로 보이게)
     const tilt = 0.9;
     for (let i = 0; i < shape.heads; i++) {
@@ -211,6 +223,8 @@ const VERTEX_SHADER = /* glsl */ `
           // 막 터졌을 땐 흰빛, 곧 제 색으로 (아침에는 처음부터 제 색)
           col = mix(mix(vec3(1.0), base, smoothstep(0.0, 0.18, life)), base, uDay);
           size *= (1.0 - lag * 0.18) * mix(1.3, 0.7, life);
+          // 막 터진 순간에는 점들이 한곳에 겹쳐 있으니 작게 시작해 퍼지면서 커집니다 (겹쳐 칠하는 양 줄이기)
+          size *= 0.4 + 0.6 * smoothstep(0.0, 0.25, tb);
         }
       } else {
         // ② 번쩍: 아주 짧게 밝았다가 꺼집니다
@@ -232,7 +246,7 @@ const VERTEX_SHADER = /* glsl */ `
     } else {
       vec4 mv = modelViewMatrix * vec4(pos, 1.0);
       gl_Position = projectionMatrix * mv;
-      gl_PointSize = size * uScale / -mv.z; // 멀수록 작게
+      gl_PointSize = size * 0.8 * uScale / -mv.z; // 멀수록 작게
     }
   }
 `;
@@ -247,7 +261,9 @@ const FRAGMENT_SHADER = /* glsl */ `
     float soft = smoothstep(1.0, 0.0, d);
     float core = smoothstep(0.4, 0.0, d);
     // 밤: 가운데가 더 밝은 부드러운 빛 / 아침: 가장자리까지 색이 찬 또렷한 점
-    float shape = mix(soft * soft, smoothstep(1.0, 0.55, d), uDay);
+    // 점의 네모 칸을 꽉 채워 쓰도록 빛이 가장자리 가까이까지 차게 했습니다
+    // (같은 크기로 보이면서 칠하는 네모는 더 작아짐 → 가벼움)
+    float shape = mix(pow(soft, 1.3), smoothstep(1.0, 0.55, d), uDay);
     gl_FragColor = vec4(vColor * (1.0 + core * 0.8 * (1.0 - uDay)), shape * vAlpha);
     #include <colorspace_fragment>
   }
@@ -262,7 +278,8 @@ function updateUniforms(material: THREE.ShaderMaterial, time: number, scale: num
 export function Fireworks() {
   const night = useNight();
   const material = useRef<THREE.ShaderMaterial>(null);
-  const geometry = useMemo(() => buildGeometry(), []);
+  // 손가락으로 쓰는 기기(휴대폰·태블릿)면 가벼운 폭죽을 만듭니다
+  const geometry = useMemo(() => buildGeometry(window.matchMedia("(pointer: coarse)").matches), []);
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
