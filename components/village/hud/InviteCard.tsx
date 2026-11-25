@@ -15,14 +15,14 @@ interface InviteCardProps {
 export function InviteCard({ title, copyLabel, onCopy }: InviteCardProps) {
   return (
     <div
-      className="pointer-events-auto flex items-center justify-between gap-3 rounded-full py-1.5 pl-4 pr-1.5 shadow-md"
-      style={{ backgroundColor: UI_COLORS.cream, color: UI_COLORS.navy }}
+      className="pointer-events-auto flex items-center justify-between gap-3 rounded-2xl bg-white py-1.5 pl-4 pr-1.5 shadow-[0_4px_16px_rgba(20,26,54,0.18)]"
+      style={{ color: UI_COLORS.navy }}
     >
       <p className="min-w-0 truncate text-sm font-semibold">{title}</p>
       <button
         type="button"
         onClick={onCopy}
-        className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-bold text-white active:scale-95"
+        className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-white active:scale-95"
         style={{ backgroundColor: UI_COLORS.navy }}
       >
         <Copy className="size-4" aria-hidden="true" />

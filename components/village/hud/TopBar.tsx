@@ -35,14 +35,20 @@ export function TopBar({ villageName, ddayText, ddayCaption, percent, progressAr
         <p className="text-4xl font-bold tracking-tight">{ddayText}</p>
         {ddayCaption && <p className="text-xs opacity-90">{ddayCaption}</p>}
       </div>
-      {/* 진행률 알약: 모서리를 완전히 둥글게(rounded-full) */}
+      {/* 진행률: 흰 알약 안에 가는 막대와 숫자 */}
       <div
         role="status"
         aria-label={`${progressAria} ${percent}%`}
-        className="shrink-0 rounded-full px-4 py-2 text-base font-bold shadow-md"
-        style={{ backgroundColor: UI_COLORS.cream, color: UI_COLORS.navy }}
+        className="flex h-10 shrink-0 items-center gap-2.5 rounded-full bg-white px-4 shadow-[0_4px_16px_rgba(20,26,54,0.18)]"
+        style={{ color: UI_COLORS.navy }}
       >
-        {percent}%
+        <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-[#e6e8f0]" aria-hidden="true">
+          <span
+            className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500"
+            style={{ width: `${percent}%`, backgroundColor: UI_COLORS.accent }}
+          />
+        </span>
+        <span className="text-sm font-bold tabular-nums">{percent}%</span>
       </div>
     </header>
   );

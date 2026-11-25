@@ -81,7 +81,7 @@ export function MailboxPromptLayer({ label, sentLabel, onPress }: LayerProps) {
           <button
             type="button"
             onClick={onPress}
-            className="pointer-events-auto flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#232b52]/10 bg-[#fff6e5] px-4 py-2 text-sm text-[#232b52] shadow-[0_4px_12px_rgba(35,43,82,0.25)] active:scale-95"
+            className="pointer-events-auto flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#232b52]/10 bg-white px-4 py-2 text-sm font-semibold text-[#232b52] shadow-[0_6px_20px_rgba(20,26,54,0.22)] active:scale-95"
           >
             <Mail className="size-4 text-[#b8283b]" aria-hidden="true" />
             {label}
@@ -92,7 +92,7 @@ export function MailboxPromptLayer({ label, sentLabel, onPress }: LayerProps) {
           {/* 말풍선 꼬리 */}
           <span
             aria-hidden="true"
-            className="-mt-px size-0 border-x-8 border-t-8 border-x-transparent border-t-[#fff6e5]"
+            className="-mt-px size-0 border-x-8 border-t-8 border-x-transparent border-t-white"
           />
         </div>
       </div>

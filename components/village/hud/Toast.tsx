@@ -23,10 +23,10 @@ export function Toast({ message, onDone }: ToastProps) {
   if (!message) return null;
   return (
     // role="status": 화면 읽기 도구가 내용을 읽어 줍니다
-    <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+130px)] z-40 flex justify-center px-6">
+    <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-40 flex justify-center px-6">
       <p
         role="status"
-        className="max-w-full rounded-full px-5 py-2.5 text-center text-sm font-medium text-white shadow-lg"
+        className="max-w-full rounded-2xl px-4 py-3 text-center text-sm font-medium text-white shadow-[0_8px_24px_rgba(20,26,54,0.3)] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200"
         style={{ backgroundColor: UI_COLORS.navy }}
       >
         {message.text}
