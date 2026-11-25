@@ -46,12 +46,6 @@ type Messages = {
   menu: string;
   /** 친구에게 쓰는 편지 창 제목. {name} 자리에 이름 */
   writeLetterTitle: string;
-  /** 편지 쓰기 창 임시 안내 */
-  writeLetterPlaceholder: string;
-  /** 편지함 창 임시 안내 */
-  letterboxPlaceholder: string;
-  /** 꾸미기 창 임시 안내 */
-  customizePlaceholder: string;
   /** 초대 링크 복사 결과 안내 */
   inviteCopied: string;
   inviteCopyFailed: string;
@@ -70,6 +64,64 @@ type Messages = {
   appComingSoon: string;
   /** 개발용 단계 슬라이더 이름 (?dev일 때만 보임) */
   devLevel: string;
+  /** 편지 쓰기 창 (F004·F006). {name} 자리에 이름, {max} 자리에 글자 수 제한 */
+  letterTo: string;
+  letterFrom: string;
+  letterInputPlaceholder: string;
+  letterLockNote: string;
+  letterSend: string;
+  letterEdit: string;
+  letterSent: string;
+  letterEdited: string;
+  letterTooLong: string;
+  /** 12.25부터 편지 쓰기가 끝났을 때 */
+  lettersClosed: string;
+  /** 편지함 창 (F005·F006). {n} 자리에 남은 날 */
+  letterboxReceived: string;
+  letterboxSent: string;
+  letterLocked: string;
+  letterLockedUntil: string;
+  letterboxEmptyReceived: string;
+  letterboxEmptySent: string;
+  letterEditedMark: string;
+  edit: string;
+  letterDelete: string;
+  letterDeleteConfirm: string;
+  letterDeleted: string;
+  cancel: string;
+  /** 캐릭터 꾸미기 창 (F016): 부위 6가지 이름 */
+  partHair: string;
+  partTop: string;
+  partBottom: string;
+  partHat: string;
+  partScarf: string;
+  partGloves: string;
+  partNone: string;
+  customizeConfirm: string;
+  customizeSaved: string;
+  customizeComingSoon: string;
+  /** 로그인 화면 (F010·F012) */
+  loginWithLine: string;
+  loginWithKakao: string;
+  invitedTo: string;
+  loginNotifyHint: string;
+  /** 초대 링크 입구 */
+  inviteLandingTitle: string;
+  inviteEnter: string;
+  /** 마을 만들기 화면 (F011·F012) */
+  createVillageTitle: string;
+  villageNameLabel: string;
+  villageNamePlaceholder: string;
+  villageNameTooLong: string;
+  villageKindLabel: string;
+  kindFriends: string;
+  kindFriendsDesc: string;
+  kindCouple: string;
+  kindCoupleDesc: string;
+  createVillageButton: string;
+  villageCreated: string;
+  inviteLinkLabel: string;
+  goCustomize: string;
 };
 
 // satisfies: "두 언어 모두 Messages 모양을 빠짐없이 지켰는지" 타입스크립트가 검사해 줍니다.
@@ -98,9 +150,6 @@ const messages = {
     invite: "招待",
     menu: "メニュー",
     writeLetterTitle: "{name}さんへ手紙を書く",
-    writeLetterPlaceholder: "手紙の書き方フォームは次のタスク(Task 005)で作ります。",
-    letterboxPlaceholder: "手紙箱の画面は次のタスク(Task 005)で作ります。",
-    customizePlaceholder: "キャラクターの着せ替えは次のタスク(Task 005)で作ります。",
     inviteCopied: "招待リンクをコピーしました",
     inviteCopyFailed: "コピーできませんでした。リンクを長押ししてコピーしてね",
     inviteCardTitle: "友だちを招待しよう",
@@ -113,6 +162,57 @@ const messages = {
     logoutPlaceholder: "ログアウトは後で作ります(仮)",
     appComingSoon: "アプリは近日公開予定です",
     devLevel: "飾りの段階",
+    letterTo: "{name}さんへ",
+    letterFrom: "{name}より",
+    letterInputPlaceholder: "伝えたい気持ちを書いてね",
+    letterLockNote: "相手はクリスマス(12月25日)まで読めません",
+    letterSend: "ポストに入れる",
+    letterEdit: "書き直す",
+    letterSent: "手紙をポストに入れました",
+    letterEdited: "手紙を書き直しました",
+    letterTooLong: "{max}文字以内で書いてね",
+    lettersClosed: "手紙の受付は終了しました",
+    letterboxReceived: "もらった手紙",
+    letterboxSent: "送った手紙",
+    letterLocked: "ひみつの手紙",
+    letterLockedUntil: "12月25日に開きます(あと{n}日)",
+    letterboxEmptyReceived: "まだ手紙は届いていません",
+    letterboxEmptySent: "まだ手紙を送っていません。友だちのポストに入れてみよう",
+    letterEditedMark: "編集済み",
+    edit: "編集",
+    letterDelete: "削除",
+    letterDeleteConfirm: "この手紙を削除しますか?",
+    letterDeleted: "手紙を削除しました",
+    cancel: "キャンセル",
+    partHair: "髪",
+    partTop: "トップス",
+    partBottom: "ボトムス",
+    partHat: "帽子",
+    partScarf: "マフラー",
+    partGloves: "手袋",
+    partNone: "なし",
+    customizeConfirm: "これにする",
+    customizeSaved: "着せ替えを保存しました",
+    customizeComingSoon: "見た目は準備中です。選んだ内容は保存されます",
+    loginWithLine: "LINEではじめる",
+    loginWithKakao: "カカオではじめる",
+    invitedTo: "「{name}」に招待されました",
+    loginNotifyHint: "ログインすると、新しい飾りや手紙のお知らせが届きます",
+    inviteLandingTitle: "村への招待が届きました",
+    inviteEnter: "この村に入る",
+    createVillageTitle: "村をつくる",
+    villageNameLabel: "集まりの名前",
+    villageNamePlaceholder: "例:大学のなかま",
+    villageNameTooLong: "{max}文字以内で入力してね",
+    villageKindLabel: "村の種類",
+    kindFriends: "友だちの村",
+    kindFriendsDesc: "人数の制限なし。みんなで手紙を送り合います",
+    kindCouple: "カップルの村",
+    kindCoupleDesc: "ふたりだけの村。質問と手紙でツリーを飾ります",
+    createVillageButton: "村をつくる",
+    villageCreated: "村ができました!",
+    inviteLinkLabel: "招待リンク",
+    goCustomize: "キャラクターを着せ替える",
   },
   ko: {
     appName: "How's your Christmas",
@@ -137,9 +237,6 @@ const messages = {
     invite: "초대",
     menu: "메뉴",
     writeLetterTitle: "{name}님께 편지 쓰기",
-    writeLetterPlaceholder: "편지 쓰기 양식은 다음 작업(Task 005)에서 만들어요.",
-    letterboxPlaceholder: "편지함 화면은 다음 작업(Task 005)에서 만들어요.",
-    customizePlaceholder: "캐릭터 꾸미기는 다음 작업(Task 005)에서 만들어요.",
     inviteCopied: "초대 링크를 복사했어요",
     inviteCopyFailed: "복사하지 못했어요. 링크를 길게 눌러 복사해 주세요",
     inviteCardTitle: "친구를 초대해요",
@@ -152,6 +249,57 @@ const messages = {
     logoutPlaceholder: "로그아웃은 나중에 만들어요 (임시)",
     appComingSoon: "앱 출시 coming soon",
     devLevel: "장식 단계",
+    letterTo: "{name}님께",
+    letterFrom: "{name} 드림",
+    letterInputPlaceholder: "전하고 싶은 마음을 적어 보세요",
+    letterLockNote: "받는 사람은 크리스마스(12월 25일)까지 읽을 수 없어요",
+    letterSend: "우체통에 넣기",
+    letterEdit: "고치기",
+    letterSent: "편지를 우체통에 넣었어요",
+    letterEdited: "편지를 고쳤어요",
+    letterTooLong: "{max}자 이내로 써 주세요",
+    lettersClosed: "편지 보내기가 끝났어요",
+    letterboxReceived: "받은 편지",
+    letterboxSent: "보낸 편지",
+    letterLocked: "잠긴 편지",
+    letterLockedUntil: "12월 25일에 열려요 (D-{n})",
+    letterboxEmptyReceived: "아직 받은 편지가 없어요",
+    letterboxEmptySent: "아직 보낸 편지가 없어요. 친구 우체통에 편지를 넣어 보세요",
+    letterEditedMark: "수정됨",
+    edit: "수정",
+    letterDelete: "삭제",
+    letterDeleteConfirm: "이 편지를 지울까요?",
+    letterDeleted: "편지를 지웠어요",
+    cancel: "취소",
+    partHair: "머리카락",
+    partTop: "상의",
+    partBottom: "하의",
+    partHat: "모자",
+    partScarf: "목도리",
+    partGloves: "장갑",
+    partNone: "없음",
+    customizeConfirm: "확인",
+    customizeSaved: "꾸미기를 저장했어요",
+    customizeComingSoon: "모양은 준비 중이에요. 고른 내용은 저장돼요",
+    loginWithLine: "LINE으로 시작하기",
+    loginWithKakao: "카카오로 시작하기",
+    invitedTo: "\"{name}\"에 초대받았어요",
+    loginNotifyHint: "로그인하면 새 장식과 편지 소식을 알림으로 받아요",
+    inviteLandingTitle: "마을 초대장이 도착했어요",
+    inviteEnter: "이 마을에 들어가기",
+    createVillageTitle: "마을 만들기",
+    villageNameLabel: "모임 이름",
+    villageNamePlaceholder: "예: 대학 동기 모임",
+    villageNameTooLong: "{max}자 이내로 입력해 주세요",
+    villageKindLabel: "마을 종류",
+    kindFriends: "친구 마을",
+    kindFriendsDesc: "인원 제한 없이 서로 편지를 주고받아요",
+    kindCouple: "커플 마을",
+    kindCoupleDesc: "둘만의 마을. 질문과 편지로 트리를 꾸며요",
+    createVillageButton: "마을 만들기",
+    villageCreated: "마을이 만들어졌어요!",
+    inviteLinkLabel: "초대 링크",
+    goCustomize: "캐릭터 꾸미러 가기",
   },
 } satisfies Record<Locale, Messages>;
 
