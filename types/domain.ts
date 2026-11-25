@@ -103,6 +103,8 @@ export type Letter = {
   recipient_id: string;
   /** 편지 내용 (보낸 사람·받은 사람만 볼 수 있고, 잠금 전에는 받는 사람도 못 읽음) */
   content: string;
+  /** 편지지 종류 (lib/letters/papers.ts의 이름. 받는 사람도 같은 편지지로 봄) [추가 11.26] */
+  paper: string;
   /** 잠금이 풀리는 시각 (12.25) */
   unlock_at: string;
   edited_at: string | null;
