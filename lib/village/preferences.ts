@@ -1,0 +1,45 @@
+// 사용자가 고른 화면 설정(언어·하늘)을 이 브라우저에 기억해 두는 도구입니다.
+// localStorage: 브라우저 안의 작은 저장 공간. 새로고침해도 남아 있습니다.
+// ⚠️ 개인 정보 보호 모드 등에서는 저장이 막힐 수 있어서, 실패해도 앱이 멈추지 않게 try/catch로 감쌉니다.
+
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/messages";
+import { SKY_MODES, type SkyMode } from "./theme";
+
+const LOCALE_KEY = "hyc.locale";
+const SKY_KEY = "hyc.sky";
+
+function read(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function write(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // 저장이 막혀 있으면 이번 화면에서만 적용됩니다
+  }
+}
+
+/** 저장해 둔 언어 (없거나 이상한 값이면 기본 언어) */
+export function loadLocale(): Locale {
+  const v = read(LOCALE_KEY);
+  return v === "ja" || v === "ko" ? v : DEFAULT_LOCALE;
+}
+
+export function saveLocale(locale: Locale) {
+  write(LOCALE_KEY, locale);
+}
+
+/** 저장해 둔 하늘 종류 (없거나 이상한 값이면 아침) */
+export function loadSky(): SkyMode {
+  const v = read(SKY_KEY);
+  return SKY_MODES.includes(v as SkyMode) ? (v as SkyMode) : "day";
+}
+
+export function saveSky(sky: SkyMode) {
+  write(SKY_KEY, sky);
+}
