@@ -1,0 +1,9 @@
+KayKit : Holiday Bits (1.0, FREE)
+Created/distributed by Kay Lousberg (www.kaylousberg.com)
+
+License: Creative Commons Zero v1.0 Universal (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+이 묶음의 zip 파일 안에는 라이선스 파일이 들어 있지 않아,
+배포 페이지(https://kaylousberg.itch.io/holiday-bits)에 적힌 라이선스(CC0)를 기록해 둡니다.
+(2026-11-25 확인. 작가 요청: 수정하지 않은 원본을 재판매하거나 자기 것이라고 주장하지 말 것)
