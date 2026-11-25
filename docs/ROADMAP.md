@@ -136,7 +136,7 @@ How's your Christmas는 **일본 10~20대 여성과 그 친구들(한국 출시�
   - ✅ 결과 (11.25): 마을 화면 `app/village/[id]/page.tsx`(테스트 주소 `/village/demo?n=6&level=4&dev`, `n`=주민 수 1~20, `level`=장식 단계 0~10, `dev`=단계 슬라이더, `tree=1`=트리 전체 보기). 3D는 `components/village/`(`VillageScene`·`House`·`Mailbox`·`GiantTree`·`Lamps`·`Forest`·`Player`·`FollowCamera`·`Decorations`), 화면 위 HUD는 `components/village/hud/`(상단 마을 이름·D-day·진행률, 하단 트리 전체 보기·편지함·꾸미기·초대·메뉴, 초대 카드, 토스트). 집 배치 `lib/village/layout.ts`, 충돌 `lib/village/collision.ts`, D-day `lib/village/dday.ts`, 더미 데이터 `lib/dummy/village.ts`. 테스트 49개 통과(`npm test`), `npm run build` 통과. Playwright(390×844)로 단계 0·4·7·10, 걷기, 우체통 창(걷기와 겹치지 않음), 메뉴, 트리 전체 보기, 초대 카드 확인. 모델은 `public/models/`(Kenney·KayKit CC0, 약 4.8MB)
   - ⏳ 남은 일: 실제 휴대폰 확인(배포 뒤)에서 걷기가 부드러운지와 첫 로딩 속도 확인, 느리면 모델 단순화. 진행률 %는 아직 `장식 단계 × 10` 임시 계산(Task 009에서 `progressPercent`로 교체). 초대 링크는 임시 주소(`/invite/demo`)
 
-- **Task 005: 2D 화면들 만들기 (로그인·마을 만들기·캐릭터 꾸미기 토대·편지 쓰기·편지함)** (약 1.5h)
+- **Task 005: 2D 화면들 만들기 (로그인·마을 만들기·캐릭터 꾸미기 토대·편지 쓰기·편지함)** (약 1.5h) 구현 완료 (11.25, 가짜 데이터)
   - 로그인 화면: "LINE으로 시작하기"·"카카오로 시작하기" 버튼, 초대 링크로 왔으면 마을 이름 표시, coming soon 문구 (F010, F012, F015)
   - 마을 만들기 화면: 모임 이름 하나만 입력 → 만들기 → 초대 링크 표시·복사 (F011, F012). 정원 입력 없음. **"친구 마을 / 커플 마을" 고르기** 포함 (D-03 ✅ 11.25). 커플 규칙(질문지, Task 018)이 12.3까지 준비되지 않으면 커플 선택지는 그때까지 숨김
   - 캐릭터 꾸미기 토대: 6부위(머리카락·상의·하의·모자·목도리·장갑) 탭과 임시 모양 목록, 닫으면 기본 모양 (F016, 부위별 모양·개수는 [결정 필요 D-06])
@@ -145,6 +145,9 @@ How's your Christmas는 **일본 10~20대 여성과 그 친구들(한국 출시�
   - 화면 파일 위치(주소): 로그인 `app/page.tsx`(`/`), 마을 만들기 `app/villages/new/`(`/villages/new`), 초대 링크 입구 `app/invite/[code]/`(`/invite/[code]`). 편지 쓰기·편지함·캐릭터 꾸미기는 주소 없이 마을 화면 위에 겹쳐 뜨는 창
   - 화면끼리는 **단순한 링크·버튼으로만** 연결해 눌러 볼 수 있게 함. "로그인 안 했으면 로그인 화면으로" 같은 자동 이동은 Task 007에서
   - 완료 기준: 더미 데이터로 "로그인 → 마을 만들기 → 꾸미기 → 마을 → 편지 쓰기 → 편지함" 흐름을 끝까지 눌러 볼 수 있음
+  - ✅ 결과 (11.25): 로그인 `app/page.tsx`(`/`, 초대로 오면 `/?invite=코드`), 마을 만들기 `app/villages/new/page.tsx`, 초대 입구 `app/invite/[code]/page.tsx`. 화면 내용은 `components/auth/LoginScreen`·`components/villages/CreateVillageForm`·`components/invite/InviteLanding`, 마을 위 겹침 창은 `components/letters/LetterForm`(편지 쓰기·고치기)·`components/letters/LetterboxPanel`(편지함)·`components/character/CharacterEditor`(꾸미기), 공용 부품 `components/ui/SegmentedControl`·`components/LocaleProvider`. 규칙은 `lib/letters/rules.ts`(500자 임시 제한, 한국 시간 12.25 0시 잠금), `lib/villages/rules.ts`(이름 1~20자, 커플 선택지 스위치 `SHOW_COUPLE_OPTION`), 임시 모양 목록 `lib/character/parts.ts`, 가짜 저장소 `lib/dummy/letters.ts`(이 브라우저의 localStorage). 테스트 주소: `/village/demo?customize=1`(꾸미기 창 바로 열기), `?unlock=1`(12.25가 지난 것처럼 편지 잠금 풀기). 테스트 107개 통과(`npm test`), `npm run build` 통과. 브라우저(390×844, 일본어·한국어)로 로그인 → 마을 만들기 → 초대 링크 복사 → 꾸미기 → 우체통 편지 보내기 → 편지함 수정·삭제, 초대 링크 경로를 끝까지 눌러 확인
+  - 🎨 화면 정리 (11.26 사용자 요청): 마을 화면 위 버튼을 2개(왼쪽 아래 트리 전체 보기, 오른쪽 아래 메뉴)로 줄이고 편지함·꾸미기·초대는 메뉴 창으로 옮김. 겹침 창은 아래에서 올라오는 바텀 시트(손잡이 줄, 둥근 닫기 버튼, 옅은 회색 바탕 + 남색·크리스마스 빨강)로 통일. 공용 버튼 모양 `components/ui/styles.ts`, 색 `UI_COLORS`(surface·muted·accent)
+  - ⏳ 남은 일: 로그인 버튼은 진짜 로그인 없이 다음 화면으로 넘어감(Task 007). 마을·편지·꾸미기 값은 서버에 저장되지 않음(Task 006·008·009). 꾸미기에서 고른 값은 저장만 되고 3D 캐릭터 모습에는 아직 반영되지 않음(D-06 모양 확정 뒤). 잠금이 풀린 받은 편지는 목록에 내용만 보여 줌(편지 읽기 화면·개봉 연출은 뒤 작업). 마을 이름 20자 제한·편지 500자 제한은 임시 값(D-13)
 
 ### Phase 3: 핵심 기능 구현 (11.30 ~ 12.02, 12.3 첫 공개)
 
