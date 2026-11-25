@@ -76,6 +76,18 @@ type Messages = {
   letterTooLong: string;
   /** 12.25부터 편지 쓰기가 끝났을 때 */
   lettersClosed: string;
+  /** 편지지 고르기 (이름은 화면 읽기 도구용) */
+  letterPaper: string;
+  paperPlain: string;
+  paperSnow: string;
+  paperTree: string;
+  paperCandy: string;
+  /** 임시 저장 */
+  letterDraftRestored: string;
+  letterDraftDiscard: string;
+  letterDraftSaved: string;
+  /** 보내는 중 연출 동안 화면 읽기 도구가 읽는 말 */
+  letterSending: string;
   /** 편지함 창 (F005·F006). {n} 자리에 남은 날 */
   letterboxReceived: string;
   letterboxSent: string;
@@ -172,6 +184,15 @@ const messages = {
     letterEdited: "手紙を書き直しました",
     letterTooLong: "{max}文字以内で書いてね",
     lettersClosed: "手紙の受付は終了しました",
+    letterPaper: "便せん",
+    paperPlain: "クリーム",
+    paperSnow: "雪",
+    paperTree: "ツリー",
+    paperCandy: "キャンディ",
+    letterDraftRestored: "書きかけの手紙を開きました",
+    letterDraftDiscard: "最初から",
+    letterDraftSaved: "書きかけの手紙を保存しました",
+    letterSending: "手紙をポストに入れています…",
     letterboxReceived: "もらった手紙",
     letterboxSent: "送った手紙",
     letterLocked: "ひみつの手紙",
@@ -259,6 +280,15 @@ const messages = {
     letterEdited: "편지를 고쳤어요",
     letterTooLong: "{max}자 이내로 써 주세요",
     lettersClosed: "편지 보내기가 끝났어요",
+    letterPaper: "편지지",
+    paperPlain: "크림",
+    paperSnow: "눈",
+    paperTree: "트리",
+    paperCandy: "사탕",
+    letterDraftRestored: "쓰던 편지를 불러왔어요",
+    letterDraftDiscard: "처음부터",
+    letterDraftSaved: "쓰던 편지를 임시 저장했어요",
+    letterSending: "편지를 우체통에 넣는 중…",
     letterboxReceived: "받은 편지",
     letterboxSent: "보낸 편지",
     letterLocked: "잠긴 편지",
