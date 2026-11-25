@@ -2,8 +2,9 @@
 
 // 마을의 3D 장면 전체(하늘·빛·카메라·땅·집·숲·캐릭터·장식)를 조립하는 파일입니다.
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { PerformanceMonitor } from "@react-three/drei";
 import { Ground } from "./Ground";
 import { GiantTree } from "./GiantTree";
 import { House } from "./House";
@@ -58,6 +59,21 @@ interface VillageSceneProps {
   onGroundPointerDown: (point: { x: number; y: number; z: number }) => void;
 }
 
+/**
+ * 해상도 배율(dpr) 범위. (11.25 성능 개선)
+ * 💡 요즘 휴대폰은 화면 점이 아주 촘촘해서(2~3배), 그대로 다 그리면 그릴 점이 4~9배로 늘어납니다.
+ *    1.5배면 눈으로는 거의 같아 보이면서 2배보다 그릴 점이 약 44% 적습니다.
+ */
+const DPR = { min: 1, max: 1.5 };
+
+/** 여유 정도(factor 0~1)에 맞는 해상도 배율. 기기 화면이 가진 배율보다 높이지는 않습니다 */
+function dprFor(factor: number): number {
+  const device = typeof window === "undefined" ? 1 : window.devicePixelRatio;
+  const wanted = DPR.min + (DPR.max - DPR.min) * factor;
+  // 0.25 단위로 끊어서, 배율이 조금씩 계속 바뀌며 화면이 다시 만들어지는 일을 막습니다
+  return Math.min(device, Math.round(wanted * 4) / 4);
+}
+
 export default function VillageScene({
   residents,
   slots,
@@ -75,6 +91,8 @@ export default function VillageScene({
   onGroundPointerDown,
 }: VillageSceneProps) {
   const theme = SKY_THEMES[sky];
+  // 해상도 배율: 처음에는 가장 선명하게 시작하고, 느린 기기에서는 자동으로 내려갑니다
+  const [dpr, setDpr] = useState(() => dprFor(1));
   // 울퉁불퉁한 눈밭: 숲 끝(울타리 + 30)까지. 그 바깥은 평평한 먼 눈밭
   const fence = villageRadius + FENCE_MARGIN;
   const detailRadius = fence + 30;
@@ -82,14 +100,16 @@ export default function VillageScene({
   const terrain = useMemo(() => createTerrain(slots, fence, detailRadius), [slots, fence, detailRadius]);
   return (
     <Canvas
-      // dpr: 해상도 배율을 1~2배로 제한해 배터리와 속도를 아낍니다
-      dpr={[1, 2]}
+      // dpr: 해상도 배율. 기기가 버거워하면 자동으로 낮춥니다 (아래 PerformanceMonitor)
+      dpr={dpr}
       camera={{ fov: CAMERA_FOV, near: 0.5, far: 300 }}
       // stencil: 반투명한 집 뒤의 우체통·캐릭터를 또렷하게 보이게 하는 "도장 판"을 켭니다 (showThrough.ts)
       gl={{ stencil: true }}
       // shadows: 그림자 기능 켜기. 실제 그림자는 밤의 달빛만 만듭니다 (낮에는 그림자 계산 없음)
       shadows
     >
+      {/* 화면이 얼마나 부드러운지 지켜보다가 해상도 배율을 올리고 내립니다 (factor: 0 = 버거움, 1 = 여유) */}
+      <PerformanceMonitor onChange={({ factor }) => setDpr(dprFor(factor))} />
       {/* 장면 안의 전구·가로등이 지금 밤인지 알 수 있게 합니다 */}
       <NightContext.Provider value={sky !== "day"}>
       {/* 하늘색 배경 + 먼 곳이 하늘색으로 흐려지는 안개 */}
