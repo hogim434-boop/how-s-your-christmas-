@@ -7,7 +7,7 @@ import { Canvas } from "@react-three/fiber";
 import { Ground } from "./Ground";
 import { GiantTree } from "./GiantTree";
 import { House } from "./House";
-import { Mailbox } from "./Mailbox";
+import { Mailbox, MailboxWreaths } from "./Mailbox";
 import { Lamps } from "./Lamps";
 import { Forest } from "./Forest";
 import { Fence } from "./Fence";
@@ -156,6 +156,9 @@ export default function VillageScene({
             </group>
           );
         })}
+
+        {/* 우체통 리스는 모든 우체통 것을 한 번에 그립니다 */}
+        <MailboxWreaths slots={slots} />
 
         <Decorations level={level} slots={slots} />
         {/* 집집마다 굴뚝 연기 (아침·밤 모두) */}
