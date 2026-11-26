@@ -530,7 +530,7 @@ How's your Christmas 내비게이션
 - **LINE** — **[확정 11.25] 앱 코드에서 LINE 로그인을 직접 처리**합니다.
   - 11.25에 Supabase의 커스텀 OIDC 로그인(`custom:line`)으로 실제 시험했으나 실패했습니다. Supabase 로그 원인: `unexpected signature algorithm "HS256"; expected ["ES256"]`. LINE 웹 로그인이 주는 확인증(ID 토큰)은 HS256(Channel secret으로 찍는 도장)인데, Supabase는 ES256(공개 도장)만 받습니다. 우리 설정 실수가 아니라 두 서비스가 서로 맞지 않는 문제입니다.
   - 흐름: ① 우리 앱이 LINE 로그인 화면으로 보냄 → ② LINE이 우리 앱 주소(Callback)로 돌려보냄 → ③ 서버 코드가 LINE에서 확인증을 받고 **LINE 공식 확인증 검사 창구**(`https://api.line.me/oauth2/v2.1/verify`)로 진짜인지 확인 → ④ 서버 코드가 Supabase 비밀 키로 그 사람의 계정을 찾거나 만들고, **Supabase 로그인 상태(세션)를 만들어 줌**.
-  - ④에서 Supabase 세션을 만드는 구체적 방법(예: 관리자 기능으로 1회용 로그인 링크를 만든 뒤 바로 확인하는 방식)은 개발 시 공식 문서로 확인합니다.
+  - ④에서 Supabase 세션을 만드는 방법 **[확정 11.26, 실제로 확인]**: 관리자 기능으로 1회용 로그인 표를 만든 뒤(`auth.admin.generateLink`, 메일은 발송되지 않음) 서버에서 바로 그 표를 써서(`verifyOtp`) 로그인 상태를 쿠키에 저장합니다. LINE에서는 이메일을 받지 않으므로 사용자마다 가짜 주소(`line_사용자번호@line.hows-your-christmas.invalid`)로 Supabase 계정을 만듭니다. 코드: `lib/auth/lineSession.ts`
   - 이 부분만은 비밀 키가 필요해 **서버 코드**(Next.js Route Handler 또는 Supabase Edge Function)가 있어야 합니다. "서버 코드에 기대지 않기" 구조 규칙의 예외입니다.
   - LINE 채널의 Callback URL은 Supabase 주소가 아니라 **우리 앱 주소**(개발: `http://localhost:3000/...`, 배포: Vercel 주소)로 바꿉니다.
   - 카카오는 그대로 Supabase 기본 기능을 씁니다. 두 로그인 모두 결국 같은 Supabase 사용자(User 표)로 모입니다.

@@ -1,0 +1,127 @@
+# 배포 안내 (How's your Christmas)
+
+> 이 문서를 위에서부터 차례로 따라 하면 배포가 끝납니다. (Task 010, 11.27 작성)
+> **비밀 값은 이 문서에 적지 않습니다.** 값은 내 컴퓨터의 `.env.local` 파일과 각 서비스의 관리 화면에 있습니다.
+
+## 먼저 알아 둘 말
+
+| 말 | 뜻 |
+| --- | --- |
+| **배포** | 내 컴퓨터에서만 보이던 서비스를, 누구나 주소로 들어올 수 있게 인터넷에 올리는 일 |
+| **Vercel** | Next.js로 만든 서비스를 올려 주는 곳. GitHub에 코드를 올리면(푸시) 자동으로 새로 배포합니다 |
+| **환경 변수** | 코드에 직접 적지 않고 따로 넣어 두는 설정값(주소·비밀 키). 내 컴퓨터에서는 `.env.local`, Vercel에서는 설정 화면에 넣습니다 |
+| **운영 주소** | 배포된 서비스의 진짜 주소. 아래에서는 `https://<운영주소>`로 적습니다 (예: `https://hows-your-christmas.vercel.app`) |
+| **Redirect URL / Callback URL** | 로그인을 마친 사람을 돌려보낼 주소. LINE·카카오·Supabase에 **미리 등록한 주소로만** 돌려보내 줍니다 (한 글자라도 다르면 오류) |
+
+## 0. 배포 전 상태 (11.27 확인)
+
+- [x] 실제 배포와 같은 빌드에서 전체 흐름 통과 (로그인 상태 → 마을 만들기 → 초대 → 입주 → 걷기 → 편지 → 장식 → 수정·삭제 → 로그아웃)
+- [x] 개발용 잠금 시각이 비어 있음 (`private.app_config` 0줄)
+- [x] 비밀 키가 브라우저로 나가는 파일에 들어 있지 않음
+- [x] Supabase 보안 점검에 오류(ERROR) 없음
+- [ ] 코드가 GitHub에 올라가 있음 → **1번**
+- [ ] 실제 LINE·카카오 계정으로 운영 주소에서 로그인 → **5번**
+
+## 1. 코드를 GitHub에 올리기 (커밋·푸시)
+
+지금 Task 006 이후의 코드는 내 컴퓨터에만 있습니다. Vercel은 GitHub의 `main`을 보고 배포하므로 먼저 올려야 합니다.
+
+- Claude에게 "커밋해 줘", "푸시해 줘"라고 요청하면 진행합니다. (요청 없이 자동으로 하지 않습니다)
+- 올리기 전 확인: `.env.local`은 `.gitignore`에 들어 있어 올라가지 않습니다.
+
+## 2. Vercel에 환경 변수 넣기
+
+Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 5개를 넣습니다. 값은 `.env.local`에서 같은 이름의 값을 복사합니다.
+
+| 이름 | 어디서 보는 값인가 | 비밀인가 |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API | 공개돼도 됨 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys (Publishable key) | 공개돼도 됨 |
+| `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys (Secret key) | 🔒 **비밀** |
+| `LINE_CHANNEL_ID` | LINE Developers → LINE Login 채널 → Basic settings | 공개돼도 됨 |
+| `LINE_CHANNEL_SECRET` | LINE Developers → LINE Login 채널 → Basic settings | 🔒 **비밀** |
+
+- 적용 범위(Environment)는 **Production**에 꼭 체크합니다. (Preview도 쓰려면 함께 체크)
+- `.env.local`에 있는 `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `SUPABASE_DB_PASSWORD`는 **코드가 쓰지 않으므로 넣지 않습니다.** (카카오 로그인 값은 Supabase 대시보드에 이미 들어 있습니다)
+- ⚠️ 환경 변수를 넣거나 바꾼 뒤에는 **다시 배포(Redeploy)** 해야 적용됩니다. `NEXT_PUBLIC_`으로 시작하는 값은 빌드할 때 코드에 박히기 때문입니다.
+
+## 3. 운영 주소를 누구나 열 수 있게 하기
+
+- Vercel → Settings → **Deployment Protection**이 켜져 있으면, 로그인한 Vercel 계정만 사이트를 열 수 있습니다. 지인이 들어오려면 **운영(Production) 주소는 보호를 꺼야** 합니다.
+- 운영 주소는 Vercel → 프로젝트 → **Domains**에서 확인합니다. 배포마다 바뀌는 긴 주소(`...-abc123.vercel.app`)가 아니라 **고정된 주소**를 씁니다.
+
+## 4. 운영 주소를 세 곳에 등록하기
+
+로그인은 "등록된 주소"로만 돌아올 수 있습니다. 운영 주소가 정해지면 아래 세 곳에 넣습니다.
+
+| 어디에 | 무엇을 | 넣을 값 |
+| --- | --- | --- |
+| **LINE Developers** → LINE Login 채널 → LINE Login 탭 → **Callback URL** | 한 줄 추가 | `https://<운영주소>/auth/line/callback` |
+| **Supabase** → Authentication → URL Configuration → **Redirect URLs** | 한 줄 추가 | `https://<운영주소>/auth/callback` |
+| **Supabase** → Authentication → URL Configuration → **Site URL** | 바꾸기 | `https://<운영주소>` |
+
+- 기존의 `http://localhost:3000/...`, `http://localhost:3001/...` 줄은 지우지 않습니다. (내 컴퓨터에서 계속 개발하려면 필요)
+- **카카오 개발자 콘솔**의 Redirect URI는 Supabase 주소(`https://<프로젝트>.supabase.co/auth/v1/callback`) 그대로입니다. 카카오 → Supabase → 우리 앱 순서로 돌아오기 때문에 **바꾸지 않습니다.**
+- LINE 채널이 **Developing(개발 중)** 상태면 채널 관리자·테스터만 로그인할 수 있습니다. 지인이 로그인하려면 채널을 **Published**로 바꿉니다.
+- 카카오는 앱이 **서비스 중** 상태가 아니면 팀원만 로그인할 수 있습니다. 또 이메일 동의 항목 때문에 `KOE205` 오류가 나면 Supabase → Authentication → Providers → Kakao에서 **Allow users without an email**을 켭니다.
+
+## 5. 배포 후 확인 (순서대로)
+
+1. [ ] 운영 주소를 열면 눈 내리는 첫 화면(로고 + LINE·카카오 버튼)이 나온다
+2. [ ] `https://<운영주소>/village/demo`는 첫 화면으로 돌아간다 (연습용 마을은 운영에서 닫혀 있음)
+3. [ ] **LINE으로 시작하기** → 로그인 → 마을 만들기 화면
+4. [ ] 마을 만들기 → 초대 링크 복사 → 캐릭터 꾸미기 → "이용 방법" 안내가 뜬다
+5. [ ] 다른 계정(또는 다른 사람)이 초대 링크로 들어와 **카카오로 시작하기** → 입주
+6. [ ] 서로의 우체통에 편지 → 진행률(%)이 오르고 트리에 장식이 달린다
+7. [ ] LINE·카카오톡 대화방에 운영 주소를 붙여 넣으면 **제목·설명·그림(집과 우체통)** 미리보기가 뜬다
+8. [ ] 로그아웃하면 첫 화면으로 돌아간다
+
+### 문제가 생기면
+
+| 증상 | 볼 곳 |
+| --- | --- |
+| LINE `400 Invalid redirect_uri` | 4번의 LINE Callback URL (주소가 한 글자라도 다르면 안 됨, `https` 확인) |
+| 카카오 로그인 뒤 `localhost`로 가거나 엉뚱한 주소로 감 | 4번의 Supabase Redirect URLs·Site URL |
+| 로그인 버튼을 누르면 "설정 문제" 안내 | 2번의 `LINE_CHANNEL_ID`·`LINE_CHANNEL_SECRET` + 다시 배포 |
+| 화면이 하얗고 500 오류 | Vercel → Deployments → 해당 배포 → **Logs**. "Supabase 설정이 없습니다"가 보이면 2번 |
+| 지인이 "로그인하라"는 Vercel 화면을 봄 | 3번의 Deployment Protection |
+| 미리보기 그림이 안 뜸 | 메신저가 예전 결과를 기억하는 경우가 많습니다. 주소 끝에 `?v=2`를 붙여 다시 보내 보기 |
+
+## 6. 실제 휴대폰 확인 체크리스트
+
+자동 테스트는 컴퓨터의 크롬으로만 했습니다. 아래는 **실제 기기에서 직접** 봐야 합니다.
+
+| 확인할 것 | 아이폰 사파리 | 안드로이드 크롬 | LINE 앱 안 | 카카오톡 앱 안 |
+| --- | --- | --- | --- | --- |
+| 첫 화면이 뜨고 눈·집이 보인다 | ☐ | ☐ | ☐ | ☐ |
+| LINE 로그인이 된다 (앱 안에서는 LINE 앱으로 넘어가는지) | ☐ | ☐ | ☐ | ☐ |
+| 카카오 로그인이 된다 | ☐ | ☐ | ☐ | ☐ |
+| 마을 3D가 10초 안에 뜬다 | ☐ | ☐ | ☐ | ☐ |
+| 땅을 누르면 부드럽게 걷는다 (끊기지 않는다) | ☐ | ☐ | ☐ | ☐ |
+| 우체통 → 편지 쓰기 → 키보드가 입력칸을 가리지 않는다 | ☐ | ☐ | ☐ | ☐ |
+| 화면 위아래(노치·홈 막대)에 버튼이 가려지지 않는다 | ☐ | ☐ | ☐ | ☐ |
+| 초대 링크를 메신저로 받아 눌러 입주가 된다 | ☐ | ☐ | ☐ | ☐ |
+
+- 앱 안 브라우저(인앱 브라우저)는 로그인 뒤 원래 화면으로 못 돌아오는 경우가 있어 **가장 먼저** 확인합니다.
+- 느리거나 끊기면 기기 이름과 어느 화면에서 그런지 알려 주세요. (화질을 낮추지 않는 방법으로 고칩니다)
+
+## 7. 되돌리기
+
+- 새 배포에 문제가 있으면: Vercel → Deployments → 잘 되던 이전 배포 → **Promote to Production** (또는 Rollback). 코드를 고치지 않고 바로 이전 상태로 돌아갑니다.
+- 데이터베이스는 배포와 따로 움직입니다. 배포를 되돌려도 마을·편지 데이터는 그대로입니다.
+
+## 8. 12월 25일 전에 다시 볼 것
+
+- `select * from private.app_config;` 결과가 **0줄**이어야 합니다. 줄이 있으면 편지 잠금 시각이 개발용 값으로 바뀌어 있는 것입니다 (`docs/db-design.md` 7.3).
+- Supabase 무료 요금제는 일주일 동안 접속이 없으면 프로젝트가 멈출 수 있습니다. 공개 뒤에는 접속이 있으니 괜찮지만, 공개 전에 오래 비워 두지 않습니다.
+
+## 참고: 남겨 둔 보안 권고 (11.27)
+
+Supabase 보안 점검에서 **오류(ERROR)는 없고**, 아래 경고(WARN)·정보(INFO)는 의도한 설계라 그대로 둡니다.
+
+| 권고 | 그대로 두는 이유 |
+| --- | --- |
+| "로그인한 사람이 SECURITY DEFINER 함수를 실행할 수 있음" (마을 만들기·입주·진행률 등 8개) | 화면이 표를 직접 못 건드리게 막고 **함수로만** 일하게 한 설계입니다. 함수 안에서 "이 마을 주민인지"를 직접 확인합니다 |
+| "로그인 안 한 사람이 `village_name_by_invite`를 실행할 수 있음" | 초대 링크를 받은 사람이 로그인 전에 마을 이름을 보도록 일부러 열어 둔 것입니다. 마을 이름만 돌려줍니다 |
+| "보안 규칙이 없는 표" (`user_secrets`, `notification_logs`, `app_config`) | 규칙이 없으면 화면에서는 읽기·쓰기가 모두 막힙니다. 서버(비밀 키)만 쓰는 표라서 일부러 비워 두었습니다 |
+| "유출된 비밀번호 검사 꺼짐" | 이 서비스는 비밀번호 로그인을 쓰지 않습니다 (LINE·카카오만) |
