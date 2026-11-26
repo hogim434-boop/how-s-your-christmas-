@@ -3,30 +3,52 @@
 // 마을 만들기 화면의 내용입니다. (F011 마을 만들기, F012 초대 링크)
 // 1) 모임 이름 하나를 적고, 마을 종류(친구 / 커플)를 골라 "만들기"를 누릅니다. 정원(인원 수)은 묻지 않습니다.
 // 2) 만들고 나면 같은 자리에 초대 링크가 나타나고, 복사하거나 캐릭터 꾸미기로 넘어갈 수 있습니다.
-// ⚠️ 지금은 가짜 데이터라서 진짜로 저장되지 않습니다. 이름만 이 브라우저에 기억해 마을 화면에 보여 줍니다.
-//    진짜 마을 만들기(초대 코드 발급, 첫 주민 등록)는 로드맵 Task 008에서 합니다.
+// (로드맵 Task 008) "만들기"를 누르면 데이터베이스의 create_village 함수를 부릅니다.
+//    그 함수가 한 번에 마을을 저장하고, 만든 사람을 첫 주민으로 넣고, 초대 코드를 만들어 돌려줍니다.
+// 💡 브라우저에서 바로 불러도 안전한 이유: 그 함수는 "로그인한 본인"으로만 마을을 만들고,
+//    이름 길이·종류 같은 규칙은 데이터베이스가 한 번 더 확인합니다.
 
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Copy, PartyPopper } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useMessages } from "@/i18n/LocaleContext";
-import { saveCreatedVillageName } from "@/lib/dummy/village";
+import { loginUrl } from "@/lib/auth/next";
+import { createClient } from "@/lib/supabase/client";
 import { copyText, inviteUrl } from "@/lib/village/invite";
 import { UI_COLORS } from "@/lib/village/theme";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
 import { availableVillageKinds, validateVillageName, VILLAGE_NAME_MAX } from "@/lib/villages/rules";
 import type { VillageKind } from "@/types/domain";
 
-/** 가짜 초대 코드 (진짜 코드는 Task 008에서 서버가 만들어 줍니다) */
-const DUMMY_INVITE_CODE = "demo";
-
 export function CreateVillageForm() {
   const t = useMessages();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<VillageKind>("friends");
-  // 만들기를 누른 뒤의 초대 링크 (아직 만들기 전이면 null)
-  const [createdLink, setCreatedLink] = useState<string | null>(null);
+  // 만든 마을 (아직 만들기 전이면 null): 초대 링크와 마을 번호
+  const [created, setCreated] = useState<{ link: string; villageId: string } | null>(null);
+  const createdLink = created?.link ?? null;
+  // 저장 요청을 보내는 중인지 (보내는 동안 버튼을 잠가, 두 번 눌러 마을이 두 개 생기지 않게 합니다)
+  const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const handleSubmit = async () => {
+    if (check !== "ok" || submitting) return;
+    setSubmitting(true);
+    setFailed(false);
+    const { data, error } = await createClient().rpc("create_village", { p_name: name.trim(), p_kind: kind });
+    if (error || !data) {
+      // 로그인이 풀린 채로 눌렀다면 로그인 화면으로 보냅니다 (로그인 뒤 이 화면으로 돌아옴)
+      if (error?.message.includes("not_signed_in")) {
+        window.location.assign(loginUrl({ next: "/villages/new" }));
+        return;
+      }
+      setFailed(true);
+      setSubmitting(false);
+      return;
+    }
+    setCreated({ link: inviteUrl(window.location.origin, data.invite_code), villageId: data.id });
+  };
   // 복사 결과: 아직 안 누름 / 복사됨 / 실패
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -74,8 +96,8 @@ export function CreateVillageForm() {
         </div>
 
         <Link
-          // 가짜 마을에는 친구들이 이미 살고 있어서, 편지 쓰기까지 이어서 눌러 볼 수 있습니다
-          href="/village/demo?customize=1"
+          // 방금 만든 마을로 가서 캐릭터 꾸미기 창을 바로 엽니다
+          href={`/village/${created?.villageId}?customize=1`}
           className={PRIMARY_BUTTON}
         >
           {t.goCustomize}
@@ -92,9 +114,7 @@ export function CreateVillageForm() {
       onSubmit={(e) => {
         // 기본 동작(페이지 새로고침)을 막습니다
         e.preventDefault();
-        if (check !== "ok") return;
-        saveCreatedVillageName(name.trim());
-        setCreatedLink(inviteUrl(window.location.origin, DUMMY_INVITE_CODE));
+        void handleSubmit();
       }}
     >
       <h1 className="text-[22px] font-bold tracking-tight">{t.createVillageTitle}</h1>
@@ -142,11 +162,17 @@ export function CreateVillageForm() {
 
       <button
         type="submit"
-        disabled={check !== "ok"}
+        disabled={check !== "ok" || submitting}
         className={PRIMARY_BUTTON}
       >
-        {t.createVillageButton}
+        {submitting ? t.creatingVillage : t.createVillageButton}
       </button>
+      {/* 저장 실패 안내 (화면 읽기 도구가 바로 읽어 주도록 role="alert") */}
+      {failed && (
+        <p role="alert" className="text-center text-xs font-semibold" style={{ color: UI_COLORS.accent }}>
+          {t.createVillageFailed}
+        </p>
+      )}
     </form>
   );
 }
