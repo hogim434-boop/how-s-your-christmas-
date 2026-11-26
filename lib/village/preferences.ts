@@ -8,6 +8,7 @@ import { readStorage, writeStorage } from "@/lib/storage";
 
 const LOCALE_KEY = "hyc.locale";
 const SKY_KEY = "hyc.sky";
+const INTRO_KEY = "hyc.introSeen";
 
 /** 저장해 둔 언어 (없거나 이상한 값이면 기본 언어) */
 export function loadLocale(): Locale {
@@ -27,4 +28,13 @@ export function loadSky(): SkyMode {
 
 export function saveSky(sky: SkyMode) {
   writeStorage(SKY_KEY, sky);
+}
+
+/** 첫 화면의 "이용 방법" 안내를 이미 봤는지 (이 브라우저 기준) */
+export function loadIntroSeen(): boolean {
+  return readStorage(INTRO_KEY) === "1";
+}
+
+export function saveIntroSeen() {
+  writeStorage(INTRO_KEY, "1");
 }
