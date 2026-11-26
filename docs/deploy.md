@@ -31,7 +31,7 @@
 
 ## 2. Vercel에 환경 변수 넣기
 
-Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 5개를 넣습니다. 값은 `.env.local`에서 같은 이름의 값을 복사합니다.
+Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 7개를 넣습니다. 값은 `.env.local`에서 같은 이름의 값을 복사합니다.
 
 | 이름 | 어디서 보는 값인가 | 비밀인가 |
 | --- | --- | --- |
@@ -40,9 +40,11 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys (Secret key) | 🔒 **비밀** |
 | `LINE_CHANNEL_ID` | LINE Developers → LINE Login 채널 → Basic settings | 공개돼도 됨 |
 | `LINE_CHANNEL_SECRET` | LINE Developers → LINE Login 채널 → Basic settings | 🔒 **비밀** |
+| `KAKAO_REST_API_KEY` | 카카오 개발자 콘솔 → 앱 키 → REST API 키 | 공개돼도 됨 |
+| `KAKAO_CLIENT_SECRET` | 카카오 개발자 콘솔 → 카카오 로그인 → 보안 → Client Secret | 🔒 **비밀** |
 
 - 적용 범위(Environment)는 **Production**에 꼭 체크합니다. (Preview도 쓰려면 함께 체크)
-- `.env.local`에 있는 `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `SUPABASE_DB_PASSWORD`는 **코드가 쓰지 않으므로 넣지 않습니다.** (카카오 로그인 값은 Supabase 대시보드에 이미 들어 있습니다)
+- `.env.local`에 있는 `SUPABASE_DB_PASSWORD`는 **코드가 쓰지 않으므로 넣지 않습니다.**
 - ⚠️ 환경 변수를 넣거나 바꾼 뒤에는 **다시 배포(Redeploy)** 해야 적용됩니다. `NEXT_PUBLIC_`으로 시작하는 값은 빌드할 때 코드에 박히기 때문입니다.
 
 ## 3. 운영 주소를 누구나 열 수 있게 하기
@@ -57,13 +59,15 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 | 어디에 | 무엇을 | 넣을 값 |
 | --- | --- | --- |
 | **LINE Developers** → LINE Login 채널 → LINE Login 탭 → **Callback URL** | 한 줄 추가 | `https://<운영주소>/auth/line/callback` |
-| **Supabase** → Authentication → URL Configuration → **Redirect URLs** | 한 줄 추가 | `https://<운영주소>/auth/callback` |
+| **카카오 개발자 콘솔** → 카카오 로그인 → **Redirect URI** | 한 줄 추가 | `https://<운영주소>/auth/kakao/callback` |
+| **카카오 개발자 콘솔** → 앱 설정 → 플랫폼 → Web → **사이트 도메인** | 한 줄 추가 | `https://<운영주소>` |
 | **Supabase** → Authentication → URL Configuration → **Site URL** | 바꾸기 | `https://<운영주소>` |
 
-- 기존의 `http://localhost:3000/...`, `http://localhost:3001/...` 줄은 지우지 않습니다. (내 컴퓨터에서 계속 개발하려면 필요)
-- **카카오 개발자 콘솔**의 Redirect URI는 Supabase 주소(`https://<프로젝트>.supabase.co/auth/v1/callback`) 그대로입니다. 카카오 → Supabase → 우리 앱 순서로 돌아오기 때문에 **바꾸지 않습니다.**
+- 기존의 `http://localhost:...` 줄은 지우지 않습니다. (내 컴퓨터에서 계속 개발하려면 필요)
+- 내 컴퓨터에서 카카오 로그인을 해 보려면 Redirect URI에 `http://localhost:3001/auth/kakao/callback`도 넣습니다.
+- **카카오 동의항목은 "닉네임" 하나만 켜면 됩니다.** (11.27 변경) 카카오 로그인은 LINE처럼 우리 서버가 카카오와 직접 통신하고 닉네임만 요청합니다. 이메일은 받지 않으므로 **비즈 앱 전환(본인인증)이 필요 없습니다.** Supabase의 Kakao 로그인 설정(Providers → Kakao)은 더 이상 쓰지 않습니다.
 - LINE 채널이 **Developing(개발 중)** 상태면 채널 관리자·테스터만 로그인할 수 있습니다. 지인이 로그인하려면 채널을 **Published**로 바꿉니다.
-- 카카오는 앱이 **서비스 중** 상태가 아니면 팀원만 로그인할 수 있습니다. 또 이메일 동의 항목 때문에 `KOE205` 오류가 나면 Supabase → Authentication → Providers → Kakao에서 **Allow users without an email**을 켭니다.
+- 카카오는 앱이 **서비스 중** 상태가 아니면 팀원만 로그인할 수 있습니다.
 
 ## 5. 배포 후 확인 (순서대로)
 
@@ -81,8 +85,9 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 | 증상 | 볼 곳 |
 | --- | --- |
 | LINE `400 Invalid redirect_uri` | 4번의 LINE Callback URL (주소가 한 글자라도 다르면 안 됨, `https` 확인) |
-| 카카오 로그인 뒤 `localhost`로 가거나 엉뚱한 주소로 감 | 4번의 Supabase Redirect URLs·Site URL |
-| 로그인 버튼을 누르면 "설정 문제" 안내 | 2번의 `LINE_CHANNEL_ID`·`LINE_CHANNEL_SECRET` + 다시 배포 |
+| 카카오 `KOE006`(등록하지 않은 리다이렉트 URI) | 4번의 카카오 Redirect URI (주소가 한 글자라도 다르면 안 됨) |
+| 카카오 `KOE205`(동의항목 오류) | 카카오 콘솔 → 동의항목에서 **닉네임**이 켜져 있는지 |
+| 로그인 버튼을 누르면 "설정 문제" 안내 | 2번의 `LINE_CHANNEL_ID`·`LINE_CHANNEL_SECRET`·`KAKAO_REST_API_KEY` + 다시 배포 |
 | 화면이 하얗고 500 오류 | Vercel → Deployments → 해당 배포 → **Logs**. "Supabase 설정이 없습니다"가 보이면 2번 |
 | 지인이 "로그인하라"는 Vercel 화면을 봄 | 3번의 Deployment Protection |
 | 미리보기 그림이 안 뜸 | 메신저가 예전 결과를 기억하는 경우가 많습니다. 주소 끝에 `?v=2`를 붙여 다시 보내 보기 |
