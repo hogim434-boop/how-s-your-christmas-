@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProgress } from "@react-three/drei";
 import VillageScene from "./VillageScene";
-import type { WalkTarget } from "./Player";
+import { createWalkStore } from "@/lib/village/walkStore";
 import { NameTagLayer, type NameTagData } from "./NameTag";
 import { MailboxPromptLayer } from "./MailboxPrompt";
 import { approachPoint, type Spot } from "@/lib/village/proximity";
@@ -100,11 +100,13 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   const clearToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((text: string) => setToast((prev) => ({ id: (prev?.id ?? 0) + 1, text })), []);
 
-  // 걸어갈 목표: 땅을 누를 때마다 새 id를 붙여서, 같은 자리를 다시 눌러도 새 목표로 받아들입니다
-  const [walkTarget, setWalkTarget] = useState<WalkTarget | null>(null);
-  const handleGroundPointerDown = useCallback((point: { x: number; z: number }) => {
-    setWalkTarget((prev) => ({ x: point.x, z: point.z, id: (prev?.id ?? 0) + 1 }));
-  }, []);
+  // 걸어갈 목표: React 상태가 아니라 작은 보관함에 넣습니다. (11.26 성능)
+  // 땅을 누를 때 이 화면 전체가 아니라 캐릭터와 "누른 자리 표시"만 다시 그려집니다 → lib/village/walkStore.ts
+  const [walkStore] = useState(createWalkStore);
+  const handleGroundPointerDown = useCallback(
+    (point: { x: number; z: number }) => walkStore.set(point),
+    [walkStore],
+  );
 
   const slots = useMemo(() => houseSlots(village.residents.length), [village.residents.length]);
   const villageRadius = ringRadius(village.residents.length);
@@ -124,9 +126,9 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
       const spot = mailboxSpots.find((s) => s.id === residentId);
       if (!spot) return;
       const p = approachPoint(spot);
-      setWalkTarget((prev) => ({ x: p.x, z: p.z, id: (prev?.id ?? 0) + 1 }));
+      walkStore.set(p);
     },
-    [mailboxSpots],
+    [mailboxSpots, walkStore],
   );
 
   // 말풍선 버튼을 눌렀을 때: 내 우체통이면 편지함, 친구 우체통이면 그 친구에게 편지 쓰기
@@ -147,12 +149,18 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
   }, [showToast, t.inviteCopied, t.inviteCopyFailed]);
 
   // 이름표: 내 집은 "내 집"이라고, 나머지는 주민 이름을 집 위(높이 6)에 띄웁니다
-  const nameTags: NameTagData[] = village.residents.map((r, i) => ({
-    id: r.id,
-    label: r.isMe ? t.myHouse : r.name,
-    isMe: r.isMe,
-    position: [slots[i].x, 6, slots[i].z],
-  }));
+  // (useMemo·useCallback: 값이 같으면 같은 것을 다시 써서, 3D 장면이 "바뀐 게 없다"고 알아채게 합니다)
+  const nameTags: NameTagData[] = useMemo(
+    () =>
+      village.residents.map((r, i) => ({
+        id: r.id,
+        label: r.isMe ? t.myHouse : r.name,
+        isMe: r.isMe,
+        position: [slots[i].x, 6, slots[i].z],
+      })),
+    [village.residents, slots, t.myHouse],
+  );
+  const mailboxLabel = useCallback((name: string) => t.mailboxLabel.replace("{name}", name), [t.mailboxLabel]);
 
   // 3D 모델 파일을 받는 중인지 (drei가 다운로드 진행 상황을 알려 줍니다)
   const { active } = useProgress();
@@ -246,12 +254,14 @@ export default function VillageView({ id, options, level, treeView }: VillageVie
           villageRadius={villageRadius}
           nameTags={nameTags}
           sentTo={sentTo}
-          mailboxLabel={(name) => t.mailboxLabel.replace("{name}", name)}
+          mailboxLabel={mailboxLabel}
           onMailboxSelect={handleMailboxSelect}
           mailboxSpots={mailboxSpots}
           onNearMailboxChange={setNearMailbox}
           level={decorLevel}
-          walkTarget={walkTarget}
+          walkStore={walkStore}
+          // 편지 쓰기 큰 창(화면의 93%)이 열려 있는 동안에는 뒤의 3D를 멈춥니다
+          paused={overlay?.kind === "write" && locked}
           treeView={isTreeView}
           sky={sky}
           onGroundPointerDown={handleGroundPointerDown}

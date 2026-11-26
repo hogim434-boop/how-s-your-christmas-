@@ -2,7 +2,7 @@
 
 // 마을의 3D 장면 전체(하늘·빛·카메라·땅·집·숲·캐릭터·장식)를 조립하는 파일입니다.
 
-import { Suspense, useMemo } from "react";
+import { memo, Suspense, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Ground } from "./Ground";
 import { GiantTree } from "./GiantTree";
@@ -11,7 +11,7 @@ import { Mailbox, MailboxWreaths } from "./Mailbox";
 import { Lamps } from "./Lamps";
 import { Forest } from "./Forest";
 import { Fence } from "./Fence";
-import { Player, type WalkTarget } from "./Player";
+import { Player } from "./Player";
 import { TapMarker } from "./TapMarker";
 import { Decorations } from "./Decorations";
 import { CAMERA_FOV, FollowCamera } from "./FollowCamera";
@@ -20,6 +20,7 @@ import { MailboxPromptProjector } from "./MailboxPrompt";
 import type { Spot } from "@/lib/village/proximity";
 import { FENCE_INNER_GAP, FENCE_MARGIN, type HouseSlot } from "@/lib/village/layout";
 import { createTerrain } from "@/lib/village/terrain";
+import type { WalkStore } from "@/lib/village/walkStore";
 import { SKY_THEMES, VILLAGE_COLORS, type SkyMode } from "@/lib/village/theme";
 import { ShadowFlags } from "./ShadowFlags";
 import { NightContext } from "./nightContext";
@@ -44,8 +45,14 @@ interface VillageSceneProps {
   mailboxLabel: (name: string) => string;
   /** 장식 단계 (0~10) */
   level: number;
-  /** 캐릭터가 걸어갈 목표 (없으면 제자리) */
-  walkTarget: WalkTarget | null;
+  /** 캐릭터가 걸어갈 목표가 담긴 보관함 (lib/village/walkStore.ts) */
+  walkStore: WalkStore;
+  /**
+   * true면 3D를 계속 그리지 않고 멈춰 둡니다. (11.26 성능)
+   * 편지 쓰기 창이 화면의 93%를 덮는 동안에는 뒤의 마을을 그려 봐야 보이지 않아서,
+   * 그 시간과 전기를 글자 입력에 양보합니다. 창을 닫으면 다시 움직입니다.
+   */
+  paused: boolean;
   /** true면 카메라가 트리 전체를 보여 주는 자리로 이동 */
   treeView: boolean;
   /** 하늘: 아침 / 밤 */
@@ -59,7 +66,7 @@ interface VillageSceneProps {
   onGroundPointerDown: (point: { x: number; y: number; z: number }) => void;
 }
 
-export default function VillageScene({
+function VillageScene({
   residents,
   slots,
   villageRadius,
@@ -67,7 +74,8 @@ export default function VillageScene({
   sentTo,
   mailboxLabel,
   level,
-  walkTarget,
+  walkStore,
+  paused,
   treeView,
   sky,
   onMailboxSelect,
@@ -83,6 +91,8 @@ export default function VillageScene({
   const terrain = useMemo(() => createTerrain(slots, fence, detailRadius), [slots, fence, detailRadius]);
   return (
     <Canvas
+      // frameloop: "always"는 매 장면 계속 그리기, "demand"는 꼭 필요할 때(화면 크기가 바뀔 때 등)만 그리기
+      frameloop={paused ? "demand" : "always"}
       // dpr: 해상도 배율을 1~2배로 제한해 배터리와 속도를 아낍니다
       // (11.25: 1.5배 제한 + 자동 낮추기를 써 봤지만 화질이 눈에 띄게 나빠져 사용자 요청으로 되돌림)
       dpr={[1, 2]}
@@ -167,14 +177,18 @@ export default function VillageScene({
         <ChimneySmoke slots={slots.slice(0, residents.length)} sky={sky} />
         {/* 걸을 수 있는 범위: 울타리 바로 안쪽까지 */}
         <Player
-          target={walkTarget}
+          store={walkStore}
           slots={slots}
           boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
           heightAt={terrain.heightAt}
         />
-        <TapMarker target={walkTarget} />
+        <TapMarker store={walkStore} />
       </Suspense>
       </NightContext.Provider>
     </Canvas>
   );
 }
+
+// memo: 넘겨받는 값이 하나도 안 바뀌면 이 부품(3D 장면 전체)을 다시 훑지 않습니다. (11.26 성능)
+// 우체통 가까이 갈 때·안내 문구가 뜰 때·메뉴를 열 때마다 장면 전체를 다시 훑던 일을 없앱니다.
+export default memo(VillageScene);
