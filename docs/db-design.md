@@ -1,6 +1,6 @@
 # How's your Christmas 데이터베이스 설계서
 
-> **작성**: 2026-11-25 (로드맵 Task 003) · **상태**: 설계만, **아직 Supabase에 만들지 않음** (실제 생성은 Task 008)
+> **작성**: 2026-11-25 (로드맵 Task 003) · **상태**: **2026-11-26 Supabase에 만듦** (로드맵 Task 006). 실제 SQL은 `supabase/migrations/`, 설계와 달라진 점은 7장
 > **근거**: `docs/prd.md` "데이터 모델"·핵심 규칙·가정 1~4·8·27, 11.25 결정(D-03·D-05·D-10)
 > **코드 쪽 짝**: 타입 `types/domain.ts`, 계산 규칙 `lib/decor/progress.ts`, 장식표 `lib/decor/decorTable.ts`
 
@@ -101,7 +101,7 @@ Supabase 로그인 기능이 만든 계정(`auth.users`)과 1:1로 짝을 이룹
 
 - check: `sender_id <> recipient_id` — 자기 자신에게 쓰기 금지 (가정 2)
 - **부분 유일 인덱스**: `(village_id, sender_id, recipient_id) where deleted_at is null` — 삭제되지 않은 편지는 한 사람에게 한 통만 (가정 2). 삭제한 뒤에는 다시 쓸 수 있습니다.
-- 12.25 이후에는 쓰기·수정·삭제 금지 (PRD 미정 10 확정) → RLS 쓰기 정책에서 `now() < unlock_at` 검사
+- 12.25 이후에는 쓰기·수정·삭제 금지 (PRD 미정 10 확정) → RLS 쓰기 정책에서 `now() < private.unlock_time()` 검사 (7장 참고. `unlock_at` 칸은 기록용)
 
 ### 2.5 `couple_answers` — 커플 마을 질문지 답
 
@@ -183,7 +183,7 @@ village_progress(village_id) → { resident_count, done_count }
 
 > - 받는 사람 화면의 "잠긴 편지 목록"(보낸 사람 이름만 보이고 내용은 잠김)은 내용을 빼고 목록만 돌려주는 DB 함수로 만듭니다.
 > - "이미 넣었음" 표시는 보낸 사람 본인이 자기 편지를 읽을 수 있으므로 따로 함수가 필요 없습니다.
-> - 이 초안은 Task 008에서 실제로 만들 때 Supabase 보안 점검(advisor)으로 한 번 더 확인합니다.
+> - 11.26 실제로 만들고 Supabase 보안 점검(advisor)으로 확인했습니다 (7장).
 
 ---
 
@@ -195,3 +195,84 @@ village_progress(village_id) → { resident_count, done_count }
 | 편지 글자 수 제한 (임시 500자) | `letters.content` check | D-13 |
 | 캐릭터 부위별 모양 목록 | `character_parts` 안에 들어갈 값 | D-06 |
 | 12.25 0시의 기준 시간대 (한국·일본은 같은 UTC+9) | `unlock_at` 기본값 | PRD 가정 10 |
+
+---
+
+## 7. 실제로 만든 결과 (2026-11-26, 로드맵 Task 006)
+
+SQL 파일은 `supabase/migrations/`에 순서대로 있습니다. 자동 생성 타입은 `types/database.ts`입니다.
+
+| 파일 | 내용 |
+|---|---|
+| `..._01_tables.sql` | 표 7개 + 개발용 설정 표, 제약, 인덱스, 모든 표 RLS 켜기 |
+| `..._02_helpers_triggers.sql` | 도우미 함수 3개, 트리거 5개 |
+| `..._03_rls.sql` | 권한(grant)과 보안 규칙(RLS) |
+| `..._04_rpc.sql` | 화면이 부르는 DB 함수 7개 |
+
+### 7.1 설계서와 달라진 점
+
+| 달라진 점 | 이유 |
+|---|---|
+| **자동 권한을 껐습니다.** 이 프로젝트는 `public`에 표·함수를 만들면 로그인 안 한 사람(anon)에게도 권한이 자동으로 붙었습니다 | 새 표가 실수로 공개되는 일을 막기 위해. 앞으로 새 표·함수는 **권한(grant)을 직접 줘야** 화면에서 쓸 수 있습니다 |
+| **`private` 스키마**에 도우미 함수(`is_resident`, `shares_village`, `unlock_time`)와 설정 표(`app_config`)를 둠 | 보안 규칙이 `residents`를 직접 읽으면 규칙이 규칙을 다시 부르는 무한 반복 오류가 납니다. 화면에서는 부를 수 없는 곳에 확인용 함수를 둡니다 |
+| 잠금 판단은 줄마다의 `unlock_at`이 아니라 **`private.unlock_time()` 함수 하나**를 봄 | 설정값 하나로 전체 잠금을 앞당겨 시험할 수 있게 (7.3). `unlock_at` 칸은 기록용으로 남고, 화면이 보낸 값은 무시하고 트리거가 채웁니다 |
+| 편지 **삭제는 `delete_letter` 함수**로만 (화면은 `deleted_at`을 직접 고칠 수 없음) | 숨기는 순간 그 줄이 읽기 규칙에서 빠져 일반 수정으로는 실패하기 때문 |
+| `opened_at`은 **`mark_letter_opened` 함수**로만 | 받는 사람이 편지의 다른 칸을 고칠 수 없게 |
+| `edited_at`은 화면이 넣지 않고 **트리거가 데이터베이스 시계로** 기록 | 화면 시계는 조작할 수 있음 |
+| 화면이 고칠 수 있는 칸을 **칸 단위 권한**으로 제한: `users.name`, `residents.character_parts`, `letters.content`·`paper` | 줄 단위 규칙만으로는 "보낸 사람 바꾸기" 같은 일을 못 막음 |
+| `users.name` 1~50자, `couple_answers.content` 1~500자 제한 추가 | 설계서에 없던 상한. 필요하면 조정 |
+| 마을의 `invite_code`·`created_by`도 변경 불가 (`kind`와 같은 트리거) | 초대 링크가 바뀌면 기존 링크가 죽음 |
+| `users` 줄 만들기는 **Task 007의 서버 코드**가 담당 (화면용 insert 규칙 없음) | LINE은 앱이 직접 로그인을 처리하므로 그때 함께 만듦 |
+
+### 7.2 화면이 부르는 함수 (RPC)
+
+| 함수 | 하는 일 | 누가 |
+|---|---|---|
+| `create_village(p_name, p_kind)` | 마을 + 첫 주민 저장, 초대 코드(무작위 12자) 발급 | 로그인한 사람 |
+| `join_village(p_code)` | 초대 코드로 입주. 이미 주민이면 그대로. 없는 코드는 `invalid_invite`, 커플 마을 3번째는 `couple_full` | 로그인한 사람 |
+| `village_name_by_invite(p_code)` | 초대 화면용 마을 이름·종류 | 로그인 전에도 |
+| `village_progress(p_village)` | `resident_count`, `done_count` 숫자만 | 그 마을 주민 |
+| `received_letters_locked(p_village)` | 내가 받은 편지의 id와 받은 시각만 (내용·보낸 사람 없음) | 로그인한 사람 |
+| `delete_letter(p_letter)` | 편지 숨김 삭제. 12.25부터는 `closed` | 보낸 사람 |
+| `mark_letter_opened(p_letter)` | 처음 열어 본 시각 기록. 12.25 전에는 `still_locked` | 받는 사람 |
+
+### 7.3 개발 중에 잠금 시각 앞당기기 (PRD 가정 23)
+
+Supabase 대시보드의 SQL 편집기에서 실행합니다. 화면이나 일반 사용자는 이 값을 바꿀 수 없습니다.
+
+```sql
+-- 앞당기기: 지금 바로 "12.25가 지난 것처럼" 만들기
+insert into private.app_config values ('unlock_override', '2026-11-01T00:00:00+09:00')
+on conflict (key) do update set value = excluded.value;
+
+-- 되돌리기 (원래대로 12.25 0시)
+delete from private.app_config where key = 'unlock_override';
+```
+
+> ⚠️ Supabase 프로젝트가 하나뿐이라 이 값은 **모든 사용자에게** 적용됩니다. 지인에게 공개한 뒤에는 쓰지 말고, 배포 전에는 반드시 비어 있는지 확인합니다 (로드맵 Task 010).
+
+### 7.4 검증 결과 (11.26)
+
+시험 계정 3개(A·B는 같은 마을 주민, C는 외부인)로 47개 항목을 확인했고 모두 기대대로 동작했습니다. 시험 데이터는 남기지 않았습니다.
+
+| 로드맵 체크리스트 | 결과 |
+|---|---|
+| 다른 사람(C)의 편지 조회 | 0통 (읽히지 않음) |
+| 12.25 전 받는 사람(B)의 조회 | 내용 0통, 잠긴 목록에만 1통 |
+| 주민 아닌 사람(C)의 편지 쓰기 | 거부 |
+| 같은 사람에게 두 번째 편지 | 거부 |
+
+그 밖에 확인한 것: 로그인 안 한 사람은 모든 표 접근 거부, 남의 이름으로 쓰기·보낸 사람 바꾸기·잠금 시각 직접 넣기·진짜 삭제 거부, 501자·없는 편지지·자기 자신에게 쓰기 거부, 잠금 시각을 앞당기면 받는 사람이 읽을 수 있고 쓰기·수정·삭제는 막힘, 삭제하면 양쪽에서 사라지고 다시 쓸 수 있음, 커플 마을 3번째 입주·마을 종류 변경 거부.
+
+Supabase 보안 점검: 오류 등급 없음. 남긴 경고는 의도한 것입니다.
+- "보안 규칙은 켜졌는데 규칙이 없음" 3건(`user_secrets`, `notification_logs`, `private.app_config`): 화면에서 아예 못 쓰게 하려는 표
+- "관리자 권한 함수를 화면에서 부를 수 있음" 8건: 7.2의 함수들. 함수마다 부른 사람을 직접 확인합니다
+
+### 7.5 아직 정하지 않은 것
+
+| 내용 | 지금 값 | 바꾸는 곳 |
+|---|---|---|
+| 12.25부터 삭제도 막을지 (D-12) | 막음 | `delete_letter` 함수의 `closed` 검사 세 줄 |
+| 잠긴 받은 편지 목록에 보낸 사람을 보여 줄지 | 보여 주지 않음 (지금 화면과 같음. PRD·5장은 "이름 표시") | `received_letters_locked`가 돌려주는 칸 |
+| 잠금 시각의 연도 | 2026년으로 고정 | `private.unlock_time()` |
+
