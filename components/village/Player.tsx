@@ -13,6 +13,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import * as THREE from "three";
 import { buildObstacles, resolveCollisions } from "@/lib/village/collision";
 import { PLAYER_START, type HouseSlot } from "@/lib/village/layout";
+import { useWalkTarget, type WalkStore } from "@/lib/village/walkStore";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
 import { markShowThrough } from "./showThrough";
 import { useNight } from "./nightContext";
@@ -37,11 +38,9 @@ const HIDDEN_PARTS = ["Knife_Offhand", "1H_Crossbow", "2H_Crossbow", "Knife", "T
 const IDLE_CLIP = "Unarmed_Idle";
 const WALK_CLIP = "Walking_A";
 
-export type WalkTarget = { x: number; z: number; id: number };
-
 interface PlayerProps {
-  /** 걸어갈 목표. 땅을 누를 때마다 id가 바뀝니다. 없으면 제자리 */
-  target: WalkTarget | null;
+  /** 걸어갈 목표가 담긴 보관함. 목표가 바뀌면 캐릭터만 다시 그려집니다 (lib/village/walkStore.ts) */
+  store: WalkStore;
   /** 집 자리 (충돌 계산용) */
   slots: HouseSlot[];
   /** 마을 경계 반지름 (이 안에서만 걸을 수 있음) */
@@ -50,7 +49,9 @@ interface PlayerProps {
   heightAt: (x: number, z: number) => number;
 }
 
-export function Player({ target, slots, boundsRadius, heightAt }: PlayerProps) {
+export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
+  // 걸어갈 목표. 땅을 누를 때마다 id가 바뀝니다. 없으면 제자리
+  const target = useWalkTarget(store);
   const night = useNight();
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(MODEL_URL);

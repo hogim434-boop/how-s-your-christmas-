@@ -5,12 +5,14 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import type { WalkTarget } from "./Player";
+import { useWalkTarget, type WalkStore } from "@/lib/village/walkStore";
 
 /** 사라지는 데 걸리는 시간(초) */
 const FADE_SECONDS = 0.9;
 
-export function TapMarker({ target }: { target: WalkTarget | null }) {
+export function TapMarker({ store }: { store: WalkStore }) {
+  // 걸어갈 목표가 바뀌면 이 부품만 다시 그려집니다 (lib/village/walkStore.ts)
+  const target = useWalkTarget(store);
   // key를 target.id로 줘서, 새로 누를 때마다 처음부터 다시 시작합니다
   if (!target) return null;
   return <Ring key={target.id} x={target.x} z={target.z} />;
