@@ -6,7 +6,7 @@
 export type Locale = "ja" | "ko";
 
 /** 문구 사전의 모양(키 목록). 두 언어 모두 이 모양을 똑같이 지켜야 합니다. */
-type Messages = {
+export type Messages = {
   /** 서비스 이름 (언어와 상관없이 같음) */
   appName: string;
   /** 첫 화면 아래쪽 안내 문구 */
@@ -60,7 +60,6 @@ type Messages = {
   skyNight: string;
   /** 메뉴: 언어 고르기 */
   language: string;
-  logoutPlaceholder: string;
   appComingSoon: string;
   /** 개발용 단계 슬라이더 이름 (?dev일 때만 보임) */
   devLevel: string;
@@ -117,6 +116,51 @@ type Messages = {
   loginWithKakao: string;
   invitedTo: string;
   loginNotifyHint: string;
+  /** 마을 화면의 "이용 방법" 안내 (마을에 처음 들어오면 한 번 자동으로 뜨고, 메뉴에서 다시 볼 수 있습니다) */
+  howToOpen: string;
+  howToTitle: string;
+  howToStep1Title: string;
+  howToStep1Desc: string;
+  howToStep2Title: string;
+  howToStep2Desc: string;
+  howToStep3Title: string;
+  howToStep3Desc: string;
+  howToStart: string;
+  howToNext: string;
+  howToBack: string;
+  /** 예: "3단계 중 {n}단계" (화면 읽기 도구용) */
+  howToStepOf: string;
+  /** 로그인 실패·취소 안내 (로그인 화면에 ?error=... 로 왔을 때) */
+  loginCancelled: string;
+  loginFailed: string;
+  loginStateMismatch: string;
+  loginConfigError: string;
+  /** 주민이 아닌 마을 주소로 들어왔을 때 */
+  notResidentNotice: string;
+  /** 저장에 실패했을 때 (꾸미기 값 등) */
+  saveFailed: string;
+  /** 마을에서 쓰는 닉네임 (메뉴 줄 이름, 입력칸 이름) */
+  nickname: string;
+  nicknameTitle: string;
+  nicknameDesc: string;
+  nicknamePlaceholder: string;
+  nicknameTooLong: string;
+  nicknameConfirm: string;
+  nicknameSaved: string;
+  /** 편지를 저장하지 못했을 때 / 그 사람에게 이미 보낸 편지가 있을 때 */
+  letterSaveFailed: string;
+  /** 편지를 지우지 못했을 때 (네트워크 끊김 등) */
+  letterDeleteFailed: string;
+  letterAlreadySent: string;
+  /** 마을 만들기 */
+  createVillageFailed: string;
+  creatingVillage: string;
+  /** 초대 화면 */
+  inviteInvalidTitle: string;
+  inviteInvalidDesc: string;
+  inviteCoupleFull: string;
+  inviteJoinFailed: string;
+  backToStart: string;
   /** 초대 링크 입구 */
   inviteLandingTitle: string;
   inviteEnter: string;
@@ -171,7 +215,6 @@ const messages = {
     skyDay: "朝",
     skyNight: "夜",
     language: "言語",
-    logoutPlaceholder: "ログアウトは後で作ります(仮)",
     appComingSoon: "アプリは近日公開予定です",
     devLevel: "飾りの段階",
     letterTo: "{name}さんへ",
@@ -219,6 +262,41 @@ const messages = {
     loginWithKakao: "カカオではじめる",
     invitedTo: "「{name}」に招待されました",
     loginNotifyHint: "ログインすると、新しい飾りや手紙のお知らせが届きます",
+    howToOpen: "遊び方",
+    howToTitle: "How's your Christmas の遊び方",
+    howToStep1Title: "友だちを村に招待する",
+    howToStep1Desc: "メニューの招待リンクを送ると、友だちの家が村に建ちます",
+    howToStep2Title: "ポストに手紙を入れる",
+    howToStep2Desc: "画面をタップして友だちの家の前のポストまで歩き、手紙を書きます。手紙は12月25日まで開けません",
+    howToStep3Title: "みんなでツリーを飾る",
+    howToStep3Desc: "手紙が集まるほど、村の大きなツリーに飾りがひとつずつ増えます",
+    howToStart: "はじめる",
+    howToNext: "次へ",
+    howToBack: "戻る",
+    howToStepOf: "3ステップ中 {n}",
+    loginCancelled: "ログインをキャンセルしました",
+    loginFailed: "ログインできませんでした。もう一度お試しください",
+    loginStateMismatch: "ログインの確認に失敗しました。もう一度お試しください",
+    loginConfigError: "ログインの設定に問題があります。しばらくしてからお試しください",
+    notResidentNotice: "この村の住民ではないため、入れませんでした",
+    saveFailed: "保存できませんでした。もう一度お試しください",
+    nickname: "ニックネーム",
+    nicknameTitle: "この村で使う名前",
+    nicknameDesc: "友だちに見える名前だよ。メニューからいつでも変えられるよ",
+    nicknamePlaceholder: "ニックネームを入力",
+    nicknameTooLong: "{max}文字以内で入力してね",
+    nicknameConfirm: "この名前にする",
+    nicknameSaved: "ニックネームを保存しました",
+    letterSaveFailed: "手紙を保存できませんでした。書いた文は残っているので、もう一度お試しください",
+    letterDeleteFailed: "手紙を消せませんでした。少ししてからもう一度お試しください",
+    letterAlreadySent: "この友だちにはもう手紙を送っています。レターボックスで書き直せます",
+    createVillageFailed: "村を作れませんでした。もう一度お試しください",
+    creatingVillage: "作成中…",
+    inviteInvalidTitle: "この招待リンクは使えません",
+    inviteInvalidDesc: "リンクが間違っているか、村がなくなったようです。招待してくれた人にもう一度聞いてみてね",
+    inviteCoupleFull: "この村はふたりだけの村で、もう満員です",
+    inviteJoinFailed: "村に入れませんでした。もう一度お試しください",
+    backToStart: "はじめの画面へ",
     inviteLandingTitle: "村への招待が届きました",
     inviteEnter: "この村に入る",
     createVillageTitle: "村をつくる",
@@ -267,7 +345,6 @@ const messages = {
     skyDay: "아침",
     skyNight: "밤",
     language: "언어",
-    logoutPlaceholder: "로그아웃은 나중에 만들어요 (임시)",
     appComingSoon: "앱 출시 coming soon",
     devLevel: "장식 단계",
     letterTo: "{name}님께",
@@ -315,6 +392,41 @@ const messages = {
     loginWithKakao: "카카오로 시작하기",
     invitedTo: "\"{name}\"에 초대받았어요",
     loginNotifyHint: "로그인하면 새 장식과 편지 소식을 알림으로 받아요",
+    howToOpen: "이용 방법",
+    howToTitle: "How's your Christmas 이용 방법",
+    howToStep1Title: "친구를 마을에 초대하기",
+    howToStep1Desc: "메뉴의 초대 링크를 보내면, 친구의 집이 마을에 생겨요",
+    howToStep2Title: "우체통에 편지 넣기",
+    howToStep2Desc: "화면을 눌러 친구 집 앞 우체통까지 걸어가 편지를 써요. 편지는 12월 25일이 되어야 열어 볼 수 있어요",
+    howToStep3Title: "함께 트리 꾸미기",
+    howToStep3Desc: "편지가 모일수록 마을의 대왕 트리에 장식이 하나씩 늘어나요",
+    howToStart: "시작하기",
+    howToNext: "다음",
+    howToBack: "이전",
+    howToStepOf: "3단계 중 {n}단계",
+    loginCancelled: "로그인을 취소했어요",
+    loginFailed: "로그인하지 못했어요. 다시 시도해 주세요",
+    loginStateMismatch: "로그인 확인에 실패했어요. 다시 시도해 주세요",
+    loginConfigError: "로그인 설정에 문제가 있어요. 잠시 뒤 다시 시도해 주세요",
+    notResidentNotice: "이 마을의 주민이 아니라서 들어갈 수 없었어요",
+    saveFailed: "저장하지 못했어요. 다시 시도해 주세요",
+    nickname: "닉네임",
+    nicknameTitle: "이 마을에서 쓸 닉네임",
+    nicknameDesc: "친구들에게 보이는 이름이에요. 메뉴에서 언제든 바꿀 수 있어요",
+    nicknamePlaceholder: "닉네임을 입력해 주세요",
+    nicknameTooLong: "{max}자 이내로 입력해 주세요",
+    nicknameConfirm: "이 이름으로 할게요",
+    nicknameSaved: "닉네임을 저장했어요",
+    letterSaveFailed: "편지를 저장하지 못했어요. 쓰던 글은 남아 있으니 다시 시도해 주세요",
+    letterDeleteFailed: "편지를 지우지 못했어요. 잠시 뒤 다시 시도해 주세요",
+    letterAlreadySent: "이 친구에게는 이미 편지를 보냈어요. 편지함에서 고칠 수 있어요",
+    createVillageFailed: "마을을 만들지 못했어요. 다시 시도해 주세요",
+    creatingVillage: "만드는 중…",
+    inviteInvalidTitle: "사용할 수 없는 초대 링크예요",
+    inviteInvalidDesc: "링크가 잘못됐거나 마을이 없어진 것 같아요. 초대해 준 사람에게 다시 물어봐 주세요",
+    inviteCoupleFull: "이 마을은 둘만의 마을이라 이미 가득 찼어요",
+    inviteJoinFailed: "마을에 들어가지 못했어요. 다시 시도해 주세요",
+    backToStart: "처음 화면으로",
     inviteLandingTitle: "마을 초대장이 도착했어요",
     inviteEnter: "이 마을에 들어가기",
     createVillageTitle: "마을 만들기",
