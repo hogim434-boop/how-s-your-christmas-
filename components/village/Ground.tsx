@@ -13,6 +13,7 @@
 import { useEffect, useMemo } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
+import { groundHit } from "@/lib/village/groundHit";
 import { PLAZA_RIM, plazaRimHeight, type Terrain } from "@/lib/village/terrain";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
 import { PlazaFloor } from "./PlazaFloor";
@@ -104,6 +105,19 @@ export function Ground({ radius, detailRadius, terrain, onGroundPointerDown }: G
     onGroundPointerDown?.({ x: e.point.x, y: e.point.y, z: e.point.z });
   };
 
+  // 눌림 검사: 땅 그물의 삼각형 2만 개를 하나씩 검사하지 않고, 높이 계산식으로 눌린 자리를 바로 찾습니다.
+  // (11.26 성능: 탭 한 번에 세 번 하던 검사가 휴대폰에서 약 12ms → 거의 0. 찾는 자리는 같습니다 → lib/village/groundHit.ts)
+  // 💡 three.js는 물체마다 raycast라는 "눌림 검사 함수"를 부릅니다. 그 함수를 우리 것으로 바꿔 끼웁니다.
+  const hitTest = useMemo(
+    () =>
+      function (this: THREE.Object3D, raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
+        const hit = groundHit(raycaster.ray.origin, raycaster.ray.direction, terrain.heightAt, radius);
+        if (!hit || hit.distance < raycaster.near || hit.distance > raycaster.far) return;
+        intersects.push({ distance: hit.distance, point: new THREE.Vector3(hit.point.x, hit.point.y, hit.point.z), object: this });
+      },
+    [terrain, radius],
+  );
+
   // A. 울퉁불퉁한 땅 그물: 처음 한 번만 높이를 계산합니다
   const detailGeometry = useMemo(() => {
     const g = new THREE.RingGeometry(0.01, detailRadius, SEGMENTS.around, SEGMENTS.outward);
@@ -169,19 +183,21 @@ export function Ground({ radius, detailRadius, terrain, onGroundPointerDown }: G
   return (
     <group>
       {/* 울퉁불퉁한 눈밭 (마을과 그 둘레) */}
-      <mesh geometry={detailGeometry} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={handlePointerDown}>
+      <mesh geometry={detailGeometry} rotation={[-Math.PI / 2, 0, 0]}>
         {snowMaterial}
       </mesh>
       {/* 먼 곳의 평평한 눈밭 */}
-      <mesh geometry={outerGeometry} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={handlePointerDown}>
+      <mesh geometry={outerGeometry} rotation={[-Math.PI / 2, 0, 0]}>
         {snowMaterial}
       </mesh>
       {/* 광장: 조약돌을 동심원으로 깐 돌바닥 */}
-      <PlazaFloor onPointerDown={handlePointerDown} />
+      <PlazaFloor />
       {/* 광장 테두리의 눈 둔덕 (눈밭보다 살짝 위에 얹어 겹쳐 떨리지 않게) */}
-      <mesh geometry={rimGeometry} position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={handlePointerDown}>
+      <mesh geometry={rimGeometry} position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         {snowMaterial}
       </mesh>
+      {/* 눌림만 받는 보이지 않는 물체: 땅 전체(눈밭·광장·둔덕)의 눌림을 이 하나가 맡습니다 */}
+      <object3D raycast={hitTest} onPointerDown={handlePointerDown} />
     </group>
   );
 }

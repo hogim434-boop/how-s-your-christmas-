@@ -9,7 +9,6 @@
 //    - 색 그림(map): 돌 색과 눈
 //    - 높낮이 그림(bumpMap): 돌은 볼록, 돌 사이는 오목 → 빛이 돌 모양을 따라 비칩니다 (밤 가로등 아래에서 잘 보임)
 
-import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { PLAZA_RADIUS } from "@/lib/village/layout";
 import { useNight } from "./nightContext";
@@ -124,17 +123,13 @@ function getPlazaTextures() {
   return plazaTextures;
 }
 
-interface PlazaFloorProps {
-  /** 바닥을 눌렀을 때 (캐릭터 걷기) */
-  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
-}
-
-export function PlazaFloor({ onPointerDown }: PlazaFloorProps) {
+// 눌림(캐릭터 걷기)은 Ground.tsx의 보이지 않는 물체 하나가 땅 전체를 맡아서, 여기서는 받지 않습니다
+export function PlazaFloor() {
   const night = useNight();
   const { map, bumpMap } = getPlazaTextures();
   return (
     // 눈밭보다 아주 조금 위에 얹은 원판 (광장은 평평)
-    <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={onPointerDown}>
+    <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <circleGeometry args={[PLAZA_RADIUS, 64]} />
       <meshStandardMaterial
         map={map}
