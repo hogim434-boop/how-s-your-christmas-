@@ -28,7 +28,9 @@ export function ShadowFlags() {
   }, [gl]);
 
   useFrame(({ scene, clock }) => {
-    if (clock.elapsedTime - last.current < 1) return;
+    // 그리기를 멈췄다 다시 시작하면(편지 쓰기 창) 시계가 0부터 다시 갑니다. 그때(since가 음수)도 바로 확인합니다
+    const since = clock.elapsedTime - last.current;
+    if (since >= 0 && since < 1) return;
     last.current = clock.elapsedTime;
 
     const player = scene.getObjectByName(PLAYER_OBJECT_NAME);
