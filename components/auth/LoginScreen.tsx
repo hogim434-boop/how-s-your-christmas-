@@ -3,16 +3,15 @@
 // 로그인 화면의 내용입니다. (F010 로그인, F012 초대 링크, F015 coming soon)
 // 버튼을 누르면 진짜 LINE·카카오 로그인이 시작됩니다. (로드맵 Task 007)
 //  - LINE: 우리 앱의 서버 주소(/auth/line/start)로 이동 → LINE 로그인 화면 → /auth/line/callback
-//  - 카카오: Supabase를 거쳐 카카오 로그인 화면 → /auth/callback
+//  - 카카오: /auth/kakao/start → 카카오 로그인 화면 → /auth/kakao/callback (11.27: LINE처럼 우리 서버가 직접 통신)
 //  로그인이 끝나면 서버가 알맞은 화면(가려던 곳·초대받은 마을·내 마을·마을 만들기)으로 보내 줍니다.
 
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { DM_Serif_Display } from "next/font/google";
 import { MessageCircle } from "lucide-react";
 import { useMessages } from "@/i18n/LocaleContext";
 import type { Messages } from "@/i18n/messages";
 import type { AuthError, Notice } from "@/lib/auth/next";
-import { createClient } from "@/lib/supabase/client";
 
 // 로고 전용 글꼴: 굵기 차이가 뚜렷한 세리프(획 끝에 삐침이 있는 글꼴)의 기울임꼴.
 // 💡 next/font: 글꼴 파일을 우리 사이트에서 직접 내려 주어, 글꼴이 늦게 바뀌며 화면이 덜컹거리는 일을 막아 줍니다.
@@ -62,36 +61,13 @@ const BRAND = {
 
 export function LoginScreen({ inviteCode, inviteVillageName, next, error, notice }: LoginScreenProps) {
   const t = useMessages();
-  // 카카오 버튼을 누른 뒤 카카오 화면으로 넘어가는 동안 true (두 번 누르기 방지)
-  const [kakaoBusy, setKakaoBusy] = useState(false);
-  // 카카오 화면으로 넘어가지 못했을 때의 안내
-  const [kakaoFailed, setKakaoFailed] = useState(false);
-
   // 로그인 뒤 돌아갈 곳과 초대 코드를 주소 뒤(?next=...&invite=...)에 붙여 서버로 넘깁니다
   const params = new URLSearchParams();
   if (next) params.set("next", next);
   if (inviteCode) params.set("invite", inviteCode);
   const query = params.toString() ? `?${params.toString()}` : "";
 
-  const message = kakaoFailed ? t.loginFailed : noticeText(t, error, notice);
-
-  const startKakao = async () => {
-    setKakaoBusy(true);
-    setKakaoFailed(false);
-    try {
-      // signInWithOAuth: Supabase가 카카오 로그인 화면 주소를 만들어 그곳으로 이동시켜 줍니다.
-      // redirectTo: 로그인이 끝난 뒤 돌아올 우리 앱 주소 (Supabase 대시보드의 Redirect URLs에 등록돼 있어야 합니다)
-      const { error: startError } = await createClient().auth.signInWithOAuth({
-        provider: "kakao",
-        options: { redirectTo: `${window.location.origin}/auth/callback${query}` },
-      });
-      if (startError) throw startError;
-      // 성공하면 곧 카카오 화면으로 넘어가므로 버튼은 계속 잠가 둡니다
-    } catch {
-      setKakaoFailed(true);
-      setKakaoBusy(false);
-    }
-  };
+  const message = noticeText(t, error, notice);
 
   return (
     // pointer-events-none: 배경은 구경만 하는 화면이라, 버튼만 누를 수 있게 켭니다
@@ -158,16 +134,15 @@ export function LoginScreen({ inviteCode, inviteVillageName, next, error, notice
           <MessageCircle className="size-5" aria-hidden="true" />
           {t.loginWithLine}
         </a>
-        <button
-          type="button"
-          onClick={startKakao}
-          disabled={kakaoBusy}
-          className={`${RISE} flex h-14 items-center justify-center gap-2 rounded-full text-[15px] font-semibold shadow-[0_10px_30px_rgba(254,229,0,0.25),inset_0_1px_0_rgba(255,255,255,0.5)] transition hover:brightness-105 active:scale-[0.98] disabled:opacity-60`}
+        {/* 카카오도 LINE처럼 우리 서버의 시작 주소로 갑니다 (11.27: 이메일 없이 닉네임만 받기 위해 직접 통신) */}
+        <a
+          href={`/auth/kakao/start${query}`}
+          className={`${RISE} flex h-14 items-center justify-center gap-2 rounded-full text-[15px] font-semibold shadow-[0_10px_30px_rgba(254,229,0,0.25),inset_0_1px_0_rgba(255,255,255,0.5)] transition hover:brightness-105 active:scale-[0.98]`}
           style={{ ...delay(620), ...BRAND.kakao }}
         >
           <MessageCircle className="size-5" aria-hidden="true" />
           {t.loginWithKakao}
-        </button>
+        </a>
         <p style={delay(760)} className={`${RISE} px-2 pt-2 text-center text-xs leading-relaxed text-white/75`}>
           {t.loginNotifyHint}
         </p>
