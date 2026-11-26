@@ -10,12 +10,12 @@
 
 import dynamic from "next/dynamic";
 
-const EmptyScene = dynamic(() => import("./EmptyScene"), {
+const TitleScene = dynamic(() => import("./TitleScene"), {
   ssr: false,
-  // 불러오는 동안에는 하늘색 바탕만 보여 줍니다.
-  loading: () => <div className="h-full w-full bg-[#eaf3fc]" />,
+  // 불러오는 동안에는 밤하늘색 바탕만 보여 줍니다.
+  loading: () => <div className="h-full w-full bg-[#1c2550]" />,
 });
 
 export default function SceneLoader() {
-  return <EmptyScene />;
+  return <TitleScene />;
 }

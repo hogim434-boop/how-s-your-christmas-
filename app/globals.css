@@ -132,6 +132,18 @@
   }
 }
 /* 우체통 위 "편지 쓰기" 말풍선이 톡 튀어나오는 움직임 (MailboxPrompt.tsx) */
+/* 첫 화면(타이틀)의 로고·버튼이 아래에서 살짝 떠오르며 나타나는 움직임 */
+@keyframes title-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes prompt-pop {
   0% {
     opacity: 0;
