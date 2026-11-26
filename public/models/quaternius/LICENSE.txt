@@ -1,0 +1,14 @@
+Pine (Quaternius)
+출처: https://poly.pizza/m/Zt62gceKXZ  (작가: Quaternius, https://quaternius.com)
+
+License: Creative Commons Zero v1.0 Universal (CC0, 퍼블릭 도메인)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+2026-11-25 Poly Pizza 모델 페이지에 적힌 라이선스("Public Domain (CC0)")를 기록해 둡니다.
+마을 한가운데 대왕 트리로 사용합니다. (components/village/GiantTree.tsx)
+
+---
+pine_straight.glb
+원본: "Pine Trees" (Quaternius) https://poly.pizza/m/oYtDty0fR6  — Public Domain (CC0)
+묶음 안의 나무 10그루 중 가장 곧게 선 1그루만 꺼내 새 파일로 만들었습니다. (2026-11-25)
+(회전·크기를 미리 적용하고, 밑동 가운데를 원점에 맞추고, 금속감은 0으로 바꿈)
