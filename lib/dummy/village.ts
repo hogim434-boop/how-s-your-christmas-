@@ -2,9 +2,8 @@
 // (로드맵 Task 004. 나중에 진짜 데이터(Supabase)로 바뀌어도 모양은 같게 유지합니다)
 // 이름은 화면 문구가 아니라 "데이터"라서 여기에 그대로 둡니다.
 
-import type { VillageKind } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
-import { readStorage, writeStorage } from "@/lib/storage";
+import type { VillageData, VillageResident } from "@/lib/village/data";
 
 export const MIN_RESIDENTS = 1;
 export const MAX_RESIDENTS = 20;
@@ -18,33 +17,19 @@ const DUMMY_NAMES = [
   "현우", "ゆな", "지안", "れん", "소라",
 ];
 
+/** 가짜 마을의 초대 코드 (진짜 코드가 아니라서 초대 화면에서는 "없는 초대"로 나옵니다) */
+export const DEMO_INVITE_CODE = "demo";
+
 /** 가짜 마을 이름 (초대 링크 입구·로그인 화면에서도 씁니다) */
 export const DUMMY_VILLAGE_NAME = "Dummy Village";
 
-/** 마을 만들기 화면에서 지은 이름을 이 브라우저에 기억해 두는 자리 (가짜 데이터용) */
-const CREATED_NAME_KEY = "hyc.dummy.villageName";
+/** 가짜 주민 (진짜 주민과 같은 모양 — lib/village/data.ts) */
+export type DummyResident = VillageResident;
 
-export function saveCreatedVillageName(name: string) {
-  writeStorage(CREATED_NAME_KEY, name);
-}
-
-/** 마을 만들기 화면에서 지은 이름 (없으면 null) */
-export function loadCreatedVillageName(): string | null {
-  const name = readStorage(CREATED_NAME_KEY);
-  return name && name.trim() !== "" ? name : null;
-}
-
-export type DummyResident = { id: string; name: string; isMe: boolean };
-
-export type DummyVillage = {
-  id: string;
-  name: string;
-  kind: VillageKind;
-  residents: DummyResident[];
-  /** 내가 편지를 보낸 주민의 id 목록 */
+/** 가짜 마을: 진짜 마을과 같은 모양에, 가짜 편지용 값만 하나 더 있습니다 */
+export type DummyVillage = VillageData & {
+  /** 내가 편지를 보낸 주민의 id 목록 (가짜 편지의 처음 상태) */
   sentTo: string[];
-  /** 장식 단계 (0~10) */
-  level: number;
 };
 
 /** min~max 범위 밖의 값을 범위 안으로 끌어 옵니다. 정수가 아니면 내림합니다. */
@@ -62,12 +47,21 @@ export function getDummyVillage(options: { id: string; n: number; level: number 
     id: `r${i + 1}`,
     name,
     isMe: i === 0,
+    // 가짜 마을의 꾸미기 값은 이 브라우저에 따로 저장합니다 (lib/character/parts.ts)
+    characterParts: null,
   }));
 
   return {
     id: options.id,
     name: DUMMY_VILLAGE_NAME,
     kind: "friends",
+    inviteCode: DEMO_INVITE_CODE,
+    isDemo: true,
+    // 아래 네 값은 진짜 마을용 칸입니다. 연습용 마을의 편지는 lib/dummy/letters.ts가 따로 만듭니다
+    doneCount: 0,
+    lettersClosed: false,
+    sentLetters: [],
+    receivedLetters: [],
     residents,
     // 나(r1) 말고, 홀수 번째 주민 몇 명에게 보낸 것으로 가정
     sentTo: residents.filter((r, i) => !r.isMe && i % 2 === 1).map((r) => r.id),

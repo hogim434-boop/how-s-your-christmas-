@@ -10,7 +10,7 @@ import { useState } from "react";
 import { Lock, Mail, Pencil, Trash2 } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useMessages } from "@/i18n/LocaleContext";
-import type { DummyReceivedLetter } from "@/lib/dummy/letters";
+import type { ReceivedLetter } from "@/lib/letters/types";
 import type { PaperKey } from "@/lib/letters/papers";
 import { letterPreview } from "@/lib/letters/rules";
 import { PAPER_LOOK } from "./paperLook";
@@ -28,7 +28,7 @@ export type SentLetterRow = {
 };
 
 interface LetterboxPanelProps {
-  received: DummyReceivedLetter[];
+  received: ReceivedLetter[];
   sent: SentLetterRow[];
   /** true면 아직 12.25 전 (받은 편지는 잠김, 보낸 편지는 수정·삭제 가능) */
   locked: boolean;
@@ -107,6 +107,12 @@ export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDel
         </ul>
       )}
 
+      {/* 12.25부터는 고치기·지우기가 끝났다는 것을 알려 줍니다 (버튼이 왜 없는지 알 수 있게) */}
+      {tab === "sent" && !locked && sent.length > 0 && (
+        <p className="px-1 text-xs" style={{ color: UI_COLORS.muted }}>
+          {t.lettersClosed}
+        </p>
+      )}
       {tab === "sent" && (
         <ul className="flex flex-col gap-2">
           {sent.length === 0 && empty(t.letterboxEmptySent)}
