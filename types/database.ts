@@ -181,6 +181,7 @@ export type Database = {
           character_parts: Json | null
           id: string
           joined_at: string
+          nickname: string | null
           user_id: string
           village_id: string
         }
@@ -188,6 +189,7 @@ export type Database = {
           character_parts?: Json | null
           id?: string
           joined_at?: string
+          nickname?: string | null
           user_id: string
           village_id: string
         }
@@ -195,6 +197,7 @@ export type Database = {
           character_parts?: Json | null
           id?: string
           joined_at?: string
+          nickname?: string | null
           user_id?: string
           village_id?: string
         }
@@ -336,6 +339,7 @@ export type Database = {
       }
       delete_letter: { Args: { p_letter: string }; Returns: undefined }
       join_village: { Args: { p_code: string }; Returns: string }
+      letter_unlock_time: { Args: never; Returns: string }
       mark_letter_opened: { Args: { p_letter: string }; Returns: undefined }
       received_letters_locked: {
         Args: { p_village: string }
