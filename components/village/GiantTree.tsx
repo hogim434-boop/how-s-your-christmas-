@@ -21,10 +21,17 @@ const MODEL_URL = TREE_MODEL.url;
 // tint: 따뜻한 빛의 색(트리 자기 색에 곱해짐), intensity: 빛나는 정도
 const NIGHT_TREE_GLOW = { tint: "#ffe2b0", intensity: 0.7 };
 
+/**
+ * 전구 줄 업그레이드(9단계) 뒤의 트리 빛: 트리 가득 켜진 꼬마 불빛이 잎을 비추는 느낌으로 더 밝고 더 따뜻하게. (11.26 사용자 요청)
+ * night: 밤에 빛나는 정도 / day: 아침에 원래 값에 더하는 정도 (아침에도 은은하게 불 켜진 느낌)
+ */
+const LIT_TREE_GLOW = { tint: "#ffd28a", night: 1.7, day: 0.32 };
+
 const WARM = new THREE.Color(NIGHT_TREE_GLOW.tint);
+const LIT_WARM = new THREE.Color(LIT_TREE_GLOW.tint);
 
 /** 트리 재질의 "스스로 빛남"을 낮/밤에 맞게 바꿉니다 (three.js 재질은 React 상태가 아니라서 직접 고칩니다) */
-function applyTreeGlow(object: THREE.Object3D, night: boolean) {
+function applyTreeGlow(object: THREE.Object3D, night: boolean, lit: boolean) {
   object.traverse((child) => {
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -34,12 +41,13 @@ function applyTreeGlow(object: THREE.Object3D, night: boolean) {
       // 낮의 값은 처음 한 번 적어 두었다가 아침으로 돌아오면 되돌립니다
       m.userData.day ??= { emissive: m.emissive.clone(), emissiveMap: m.emissiveMap, intensity: m.emissiveIntensity };
       const day = m.userData.day as { emissive: THREE.Color; emissiveMap: THREE.Texture | null; intensity: number };
-      if (night) {
+      if (night || lit) {
         // 자기 색 × 따뜻한 빛 색 → 초록 잎은 초록빛으로, 갈색 줄기는 갈색빛으로 밝아집니다
         // (잎의 초록은 꼭짓점 색이라, 위 GiantTree의 셰이더 한 줄이 곱해 줍니다)
-        m.emissive.copy(m.color).multiply(WARM);
+        m.emissive.copy(m.color).multiply(lit ? LIT_WARM : WARM);
         m.emissiveMap = m.map;
-        m.emissiveIntensity = NIGHT_TREE_GLOW.intensity;
+        if (!lit) m.emissiveIntensity = NIGHT_TREE_GLOW.intensity;
+        else m.emissiveIntensity = night ? LIT_TREE_GLOW.night : day.intensity + LIT_TREE_GLOW.day;
       } else {
         m.emissive.copy(day.emissive);
         m.emissiveMap = day.emissiveMap;
@@ -50,7 +58,12 @@ function applyTreeGlow(object: THREE.Object3D, night: boolean) {
   });
 }
 
-export function GiantTree() {
+interface GiantTreeProps {
+  /** 전구 줄 업그레이드(9단계)가 켜졌는지. 켜지면 트리가 더 밝고 따뜻하게 스스로 빛납니다 */
+  lit?: boolean;
+}
+
+export function GiantTree({ lit = false }: GiantTreeProps) {
   const { scene } = useGLTF(MODEL_URL);
   const night = useNight();
 
@@ -93,7 +106,7 @@ export function GiantTree() {
     return copy;
   }, [scene]);
 
-  useEffect(() => applyTreeGlow(object, night), [object, night]);
+  useEffect(() => applyTreeGlow(object, night, lit), [object, night, lit]);
 
   return (
     <primitive

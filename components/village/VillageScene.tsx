@@ -28,6 +28,7 @@ import { VillageSnow } from "./VillageSnow";
 import { ChimneySmoke } from "./ChimneySmoke";
 import { SkyEffects } from "./SkyEffects";
 import type { DummyResident } from "@/lib/dummy/village";
+import { hasDecor } from "@/lib/decor/decorTable";
 
 interface VillageSceneProps {
   residents: DummyResident[];
@@ -131,7 +132,7 @@ export default function VillageScene({
           terrain={terrain}
           onGroundPointerDown={onGroundPointerDown}
         />
-        <GiantTree />
+        <GiantTree lit={hasDecor(level, "tree_lights_upgrade")} />
         <Lamps />
         {/* 울타리: 집 원보다 바깥. 숲은 울타리 바깥에 심습니다 */}
         <Fence radius={villageRadius + FENCE_MARGIN} />
