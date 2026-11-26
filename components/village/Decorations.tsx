@@ -5,7 +5,7 @@
 // 여기서는 "각 장식 이름 → 임시 3D 모양"만 연결합니다. (진짜 모델로 바꿀 때 이 파일의 모양만 교체)
 // level 0이면 아무것도 그리지 않아서 트리와 광장이 완전히 비어 있습니다.
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Kit } from "./Kit";
@@ -13,6 +13,7 @@ import { BULB_COLORS, BulbString } from "./BulbString";
 import { InstancedKit, placement } from "./InstancedKit";
 import { NIGHT_GLOW, useNight } from "./nightContext";
 import { Fireworks } from "./Firework";
+import { softDot } from "./particles";
 import { giftLayout, visibleStages, type DecorKey } from "@/lib/decor/decorTable";
 import {
   LAMP_TOP_Y,
@@ -28,22 +29,21 @@ type OrnamentSlot = { angle: number; t: number };
 
 /**
  * 트리에 거는 오너먼트 종류.
- * 앞의 5가지는 장식표의 단계와 이름이 같고, 뒤의 2가지(초록 방울·지팡이 사탕)는
- * 트리 위쪽을 채우려고 더한 짝꿍 장식입니다. 짝꿍은 ORNAMENT_STAGE에 적힌 단계에 함께 나타납니다.
- * (11.25 사용자 요청: 장식이 부족해 보임, 특히 위쪽. 같은 장식을 늘리지 않고 새 장식으로)
+ * 방울·양말·눈송이는 장식표에 이름이 있는 대표 장식이고, 나머지(초록 방울·지팡이 사탕·노란 종·쿠키)는
+ * 같은 단계에 함께 나오는 짝꿍 장식입니다. 어느 단계에 나오는지는 ORNAMENT_STAGE에 적혀 있습니다.
  */
 type OrnamentKey = "red_bauble" | "yellow_bell" | "stocking" | "snowflake" | "cookie" | "green_bauble" | "candy_cane";
 
 /** 각 오너먼트가 어느 장식 단계에 나타나는지 */
 const ORNAMENT_STAGE: Record<OrnamentKey, DecorKey> = {
+  // 11.26 미팅(#21)에서 정한 순서: 2단계 방울 2종 / 4단계 양말·지팡이 사탕·노란 종 / 6단계 눈송이·쿠키
   red_bauble: "red_bauble",
-  yellow_bell: "yellow_bell",
-  stocking: "stocking",
-  snowflake: "snowflake",
-  cookie: "cookie",
-  // 초록 방울은 빨간 방울과 함께(2단계), 지팡이 사탕은 산타 양말과 함께(5단계)
   green_bauble: "red_bauble",
+  stocking: "stocking",
   candy_cane: "stocking",
+  yellow_bell: "stocking",
+  snowflake: "snowflake",
+  cookie: "snowflake",
 };
 
 /**
@@ -369,7 +369,7 @@ function SledLoad() {
   );
 }
 
-/** 광장의 루돌프 썰매 (8단계): 루돌프·썰매는 Kenney, 선물 짐은 KayKit */
+/** 광장의 루돌프 썰매 (7단계): 루돌프·썰매는 Kenney, 선물 짐은 KayKit */
 const SANTA_ANGLE = -0.95; // 광장 왼쪽 앞
 const SANTA_RADIUS = 6.4;
 function SantaRudolph() {
@@ -386,80 +386,348 @@ function SantaRudolph() {
   );
 }
 
-/** 꼬마전구 줄: 전구 수, 크기, 몇 바퀴 감는지 */
-const FAIRY = { count: 280, radius: 0.085, turns: 6.5 };
+// ───────── 트리 전구 줄 (3단계) ─────────
+// 11.26 사용자 요청: "동그란 구슬이 한 줄로 고르게 이어진 모습"이 실제 전구 줄 같지 않음 → 진짜 트리에 전구를 감는 방식대로.
+// 실제 트리에는 이렇게 답니다:
+//  - 가느다란 초록 전선에 작은 꼬마전구가 촘촘히 달려 있고(전선은 잎 색에 묻혀 거의 안 보임)
+//  - 줄을 곧게 감지 않고, 가지 위아래로 완만한 S자를 그리며 걸칩니다
+//  - 군데군데 가지 안쪽으로 밀어 넣어서, 어떤 전구는 잎 사이로 반쯤 가려져 깊이감이 생깁니다
+//  - 전구는 한 방향으로 서 있지 않고 제각각 다른 쪽을 봅니다
+// 그리기 명령은 전선 1번 + 전구 전체 1번(InstancedMesh)뿐이라 가볍습니다.
 
 /**
- * 트리를 꼭대기까지 감는 꼬마전구 줄 (9단계, 구슬 줄과 함께). — 11.25 사용자 요청
- * 구슬 줄과 반대 방향으로 감아서 서로 엇갈리고, 트리 위쪽의 빈 곳을 채웁니다.
- * 밤에는 전구가 스스로 빛나서(빛 번짐) 트리와 오너먼트 둘레가 반짝입니다.
- * 전구 280개를 한 번에 그리므로(InstancedMesh) 부담이 거의 없습니다.
+ * 트리 전구 줄 설정
+ * bulbs: 전구 수 / turns: 트리를 몇 바퀴 감는지 / from~to: 줄이 걸리는 높이 비율(아래 7% ~ 꼭대기 밑 93%)
+ * wave: 위아래로 굽이치는 폭(아래쪽, 위쪽) / waves: 한 바퀴에 몇 번 굽이치는지
+ *       (딱 떨어지지 않는 수라야 위아래 층의 굽이가 서로 어긋나 손으로 감은 것처럼 보입니다)
+ * out: 잎 표면에서 전선을 띄우는 거리 / tuck: 가지 안쪽으로 밀어 넣는 깊이 / tucks: 한 바퀴에 몇 번 밀어 넣는지
+ * wire: 전선 굵기(반지름)
  */
-function TreeFairyLights() {
+const TREE_LIGHTS = {
+  bulbs: 420,
+  turns: 9,
+  from: 0.07,
+  to: 0.93,
+  wave: [0.3, 0.12] as const,
+  waves: 3.3,
+  out: 0.1,
+  tuck: 0.42,
+  tucks: 4.7,
+  wire: 0.014,
+};
+/** 꼬마전구 크기: 길이, 가장 통통한 곳의 반지름, 소켓 길이·반지름 */
+const BULB_SHAPE = { length: 0.2, radius: 0.06, socket: 0.07, socketRadius: 0.04 };
+/** 전선 색: 잎에 묻히는 짙은 초록 */
+const WIRE_COLOR = "#14301d";
+/** 트리 꼬마전구 색 (실제 알록달록 전구 줄의 다섯 가지 색) */
+const TREE_BULB_COLORS = ["#ff4a3d", "#ffb52e", "#49d163", "#4aa8ff", "#ff6fb1"];
+/** 업그레이드 뒤 전구 줄의 색: 따뜻한 금빛 한 가지 */
+const WARM_BULB = "#ffd98a";
+
+/** 전선이 지나가는 길. 줄의 처음(0)부터 끝(1)까지 중 f 지점의 좌표를 돌려줍니다 */
+function treeLightPoint(f: number, target: THREE.Vector3): THREE.Vector3 {
+  const angle = -f * TREE_LIGHTS.turns * Math.PI * 2;
+  const t = TREE_LIGHTS.from + f * (TREE_LIGHTS.to - TREE_LIGHTS.from);
+  // 위아래로 굽이치는 정도: 아래쪽은 크게, 위쪽은 작게. 두 박자를 섞어 굽이마다 크기가 조금씩 다릅니다
+  const wave = TREE_LIGHTS.wave[0] + (TREE_LIGHTS.wave[1] - TREE_LIGHTS.wave[0]) * f;
+  const y = t * TREE_HEIGHT + (Math.sin(angle * TREE_LIGHTS.waves) + 0.35 * Math.sin(angle * 1.37 + 1.9)) * wave;
+  // 가지 안쪽으로 밀어 넣기: 평소에는 가지 끝에 걸쳐 있다가, 군데군데 잎 속으로 들어갑니다
+  const tuck = Math.max(0, Math.sin(angle * TREE_LIGHTS.tucks + 0.8)) ** 2 * TREE_LIGHTS.tuck;
+  // 굽이친 뒤의 실제 높이에서 잎 표면을 찾아야 전선이 허공에 뜨지 않습니다
+  const r = Math.max(0.05, treeSurfaceRadius(y / TREE_HEIGHT) + TREE_LIGHTS.out - tuck);
+  return target.set(Math.sin(angle) * r, y, Math.cos(angle) * r);
+}
+
+/** 전선이 지나가는 곡선 (점 여러 개를 부드럽게 이은 선). 전선 모양과 전구 자리 계산에 함께 씁니다 */
+function createTreeLightCurve(): THREE.CatmullRomCurve3 {
+  const STEPS = 720;
+  const points = Array.from({ length: STEPS + 1 }, (_, i) => treeLightPoint(i / STEPS, new THREE.Vector3()));
+  const curve = new THREE.CatmullRomCurve3(points);
+  // 전구를 "줄 길이 기준으로 같은 간격"에 달기 위해 길이를 촘촘히 재 둡니다
+  curve.arcLengthDivisions = 2400;
+  return curve;
+}
+
+/**
+ * 꼬마전구 한 개의 모양: 소켓(아래) + 끝이 둥글게 좁아지는 작은 유리(위).
+ * 옆모습 선을 한 바퀴 돌려 만듭니다(LatheGeometry). 원점은 유리와 소켓이 만나는 곳, +y가 전구 끝 방향입니다.
+ * 꼭짓점 색으로 "소켓은 어둡게, 유리는 뿌리 쪽이 살짝 어둡게" 칠해 두어, 조명 없이도 입체로 보입니다.
+ * (전구가 수백 개라서 면 수를 아주 적게 만들었습니다: 한 개에 세모 약 70개)
+ */
+function createBulbGeometry(): THREE.BufferGeometry {
+  const { length: L, radius: R, socket, socketRadius } = BULB_SHAPE;
+  // [반지름, 높이] 옆모습. 높이 0 아래는 소켓, 위는 유리
+  const outline: [number, number][] = [
+    [0, -socket],
+    [socketRadius, -socket],
+    [socketRadius, 0],
+    [R * 0.8, 0.004],
+    [R, L * 0.35],
+    [R * 0.72, L * 0.75],
+    [0, L],
+  ];
+  const geometry = new THREE.LatheGeometry(
+    outline.map(([r, y]) => new THREE.Vector2(r, y)),
+    6,
+  );
+  const position = geometry.getAttribute("position");
+  const colors = new Float32Array(position.count * 3);
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    // 소켓: 전구 색의 10%만 남겨 어둡게 / 유리: 뿌리 78% → 끝 100%
+    const shade = y <= 0.001 ? 0.1 : 0.78 + 0.22 * Math.min(1, (y / L) * 1.6);
+    colors.set([shade, shade, shade], i * 3);
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return geometry;
+}
+
+/** 전구마다의 자리·방향·크기(행렬)와 색 번호. 항상 같은 모습이 나오도록 정해진 규칙의 무작위 수를 씁니다 */
+function layoutTreeBulbs(curve: THREE.CatmullRomCurve3): { matrices: THREE.Matrix4[]; colorIndex: number[] } {
+  let seed = 2412;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const UP = new THREE.Vector3(0, 1, 0);
+  const point = new THREE.Vector3();
+  const tangent = new THREE.Vector3();
+  const outward = new THREE.Vector3();
+  const across = new THREE.Vector3();
+  const direction = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  const matrices: THREE.Matrix4[] = [];
+  const colorIndex: number[] = [];
+  let lastColor = -1;
+  for (let i = 0; i < TREE_LIGHTS.bulbs; i++) {
+    const u = (i + 0.5) / TREE_LIGHTS.bulbs; // 줄 길이 기준 위치 (0~1)
+    curve.getPointAt(u, point);
+    curve.getTangentAt(u, tangent);
+    // outward: 트리 바깥 방향 / across: 전선과 바깥 방향 모두에 직각인 방향(대체로 위아래)
+    outward.set(point.x, 0, point.z).normalize();
+    across.crossVectors(tangent, outward).normalize();
+    // 실제 전구 줄처럼 전구가 제각각 다른 쪽을 봅니다: 바깥·위·아래·줄 방향이 무작위로 섞입니다.
+    // 바깥 성분은 항상 남겨서(0.45 이상) 전구가 잎 속으로 파고들지 않게 합니다
+    direction
+      .copy(outward)
+      .multiplyScalar(0.45 + random() * 0.55)
+      .addScaledVector(across, (random() - 0.5) * 1.7)
+      .addScaledVector(tangent, (random() - 0.5) * 1.2)
+      .normalize();
+    quaternion.setFromUnitVectors(UP, direction);
+    const size = 0.85 + random() * 0.3;
+    scale.setScalar(size);
+    // 소켓 바닥이 전선에 닿도록, 소켓 길이만큼 전구 방향으로 밀어 답니다
+    point.addScaledVector(direction, BULB_SHAPE.socket * size);
+    matrices.push(new THREE.Matrix4().compose(point, quaternion, scale));
+    // 색: 무작위로 고르되 바로 앞 전구와 같은 색은 피합니다
+    let pick = Math.floor(random() * TREE_BULB_COLORS.length);
+    if (pick === lastColor) pick = (pick + 1) % TREE_BULB_COLORS.length;
+    lastColor = pick;
+    colorIndex.push(pick);
+  }
+  return { matrices, colorIndex };
+}
+
+/**
+ * 트리 가지에 걸쳐 감아 올라가는 알록달록 꼬마전구 줄 (3단계). — 11.26 미팅(#21): 전구 줄은 30%에 달고 90%에 업그레이드
+ * 밤에는 전구가 스스로 빛나서(빛 번짐) 트리와 오너먼트 둘레가 반짝입니다. (가짜 빛, 진짜 조명 없음)
+ * warm: 9단계(전구 줄 업그레이드)가 되면 알록달록한 색이 사라지고, 같은 줄이 따뜻한 금빛으로 바뀝니다. (11.26 사용자 요청)
+ */
+function TreeLights({ warm }: { warm: boolean }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const night = useNight();
+  // 모양은 처음 한 번만 만들어 둡니다 (useMemo: 다시 그릴 때마다 새로 만들지 않게 기억)
+  const { wire, bulb, layout } = useMemo(() => {
+    const curve = createTreeLightCurve();
+    return {
+      wire: new THREE.TubeGeometry(curve, 1100, TREE_LIGHTS.wire, 4, false),
+      bulb: createBulbGeometry(),
+      layout: layoutTreeBulbs(curve),
+    };
+  }, []);
+  // 이 부품이 화면에서 사라질 때, 그래픽 카드에 올려 둔 모양 데이터를 치웁니다
+  useEffect(
+    () => () => {
+      wire.dispose();
+      bulb.dispose();
+    },
+    [wire, bulb],
+  );
+  // 전구 자리: 한 번만 넣으면 됩니다
   useLayoutEffect(() => {
     const m = mesh.current;
     if (!m) return;
-    const matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
-    for (let i = 0; i < FAIRY.count; i++) {
-      const f = i / (FAIRY.count - 1);
-      const t = 0.1 + f * 0.84; // 높이 비율: 아래(10%)부터 꼭대기 바로 밑(94%)까지
-      // 구슬 줄과 반대 방향(-)으로 감고, 줄이 가지에 걸쳐 살짝 늘어진 것처럼 높이를 조금 출렁이게 합니다
-      const angle = -f * FAIRY.turns * Math.PI * 2;
-      const r = treeSurfaceRadius(t) + 0.12;
-      const droop = Math.sin(f * FAIRY.turns * 14) * 0.07;
-      matrix.setPosition(Math.sin(angle) * r, t * TREE_HEIGHT + droop, Math.cos(angle) * r);
-      m.setMatrixAt(i, matrix);
-      m.setColorAt(i, color.set(BULB_COLORS[i % BULB_COLORS.length]).multiplyScalar(night ? NIGHT_GLOW : 1));
-    }
+    layout.matrices.forEach((matrix, i) => m.setMatrixAt(i, matrix));
     m.instanceMatrix.needsUpdate = true;
+  }, [layout]);
+  // 전구 색: 낮/밤이 바뀌거나 업그레이드되면 색만 다시 칠합니다 (모양·자리는 그대로)
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const color = new THREE.Color();
+    layout.colorIndex.forEach((index, i) => {
+      const bulbColor = warm ? WARM_BULB : TREE_BULB_COLORS[index];
+      // 밤에는 색을 몇 배로 밝혀서 빛 번짐 효과가 불빛처럼 퍼뜨리게 합니다
+      m.setColorAt(i, color.set(bulbColor).multiplyScalar(night ? NIGHT_GLOW : 1));
+    });
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [night]);
+  }, [layout, night, warm]);
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, FAIRY.count]} frustumCulled={false}>
-      <sphereGeometry args={[FAIRY.radius, 8, 8]} />
-      {/* 조명과 상관없이 불 켜진 것처럼 밝게 */}
-      <meshBasicMaterial toneMapped={false} />
-    </instancedMesh>
+    <group>
+      {/* 전선 */}
+      <mesh geometry={wire} frustumCulled={false}>
+        <meshBasicMaterial color={WIRE_COLOR} />
+      </mesh>
+      {/* 꼬마전구 (소켓 포함) */}
+      <instancedMesh ref={mesh} args={[bulb, undefined, TREE_LIGHTS.bulbs]} frustumCulled={false}>
+        {/* 조명과 상관없이 불 켜진 것처럼 밝게. vertexColors: 모양에 칠해 둔 명암(소켓·유리)을 전구 색에 곱합니다 */}
+        <meshBasicMaterial vertexColors toneMapped={false} />
+      </instancedMesh>
+    </group>
   );
 }
 
-/** 구슬 줄 색: 크림색 줄에 빨강·파랑·금색 구슬이 섞임 (KayKit 트리 느낌) */
-const BEAD_COLORS = ["#ead7a6", "#ead7a6", "#d9a441", "#ead7a6", "#c0394a", "#ead7a6", "#3f7fc0"];
-/** 구슬 수와 크기. 오너먼트를 줄이면서 구슬도 방울(지름 약 0.75)보다 작게 맞췄습니다 (11.25) */
-const BEAD_COUNT = 320;
-const BEAD_RADIUS = 0.13;
+// ───────── 전구 줄 업그레이드 (9단계): 트리 가득 따뜻한 꼬마 불빛 ─────────
+// 11.26 사용자 요청: 90%에서는 알록달록한 줄이 사라지고(같은 줄이 금빛으로 바뀜) "트리 자체에서 빛이 나는 느낌"으로 확실히 업그레이드.
+// 참고 사진처럼 가지마다 따뜻한 흰빛 꼬마 불빛이 수없이 켜진 모습입니다. 모두 가짜 빛입니다 (진짜 조명 없음).
+//  1) 꼬마 불빛: 점(Points) 수백 개를 한 번에 그리고, 반짝임은 그래픽 카드(셰이더)가 계산
+//  2) 트리 둘레의 빛 번짐: 밤에만, 은은한 그림 한 장
+//  3) 트리 잎이 스스로 더 밝게 빛남: GiantTree.tsx의 LIT_TREE_GLOW
 
-/** 트리를 감싸는 나선 구슬 줄 (9단계). 교체할 때 이 함수만 바꾸면 됩니다 */
-function TreeGarland() {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  // 밤에는 구슬이 작은 전구처럼 스스로 빛납니다
+/** 꼬마 불빛 수 (휴대폰은 적게), 점 크기 */
+const TWINKLE = { count: 1500, liteCount: 850, size: 0.62 };
+
+/** 꼬마 불빛의 자리를 정합니다. 항상 같은 자리가 나오도록 정해진 규칙의 무작위 수를 씁니다 */
+function buildTwinkleGeometry(count: number): THREE.BufferGeometry {
+  let seed = 1225;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const maxRadius = treeSurfaceRadius(0.05);
+  const positions = new Float32Array(count * 3);
+  const seeds = new Float32Array(count);
+  let n = 0;
+  while (n < count) {
+    const t = 0.05 + random() * 0.92;
+    const surface = treeSurfaceRadius(t);
+    // 트리는 아래가 넓으므로 아래쪽에 더 많이 달아야 고르게 보입니다 (좁은 위쪽은 덜 뽑음)
+    if (random() > surface / maxRadius + 0.12) continue;
+    const angle = random() * Math.PI * 2;
+    // 가지 끝(겉)부터 조금 안쪽까지. 안쪽 불빛은 잎에 반쯤 가려져 깊이감이 생깁니다
+    const r = surface * (0.72 + random() * 0.32) + 0.05;
+    positions[n * 3] = Math.sin(angle) * r;
+    positions[n * 3 + 1] = t * TREE_HEIGHT;
+    positions[n * 3 + 2] = Math.cos(angle) * r;
+    seeds[n] = random();
+    n++;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+  return geometry;
+}
+
+const TWINKLE_VERTEX = /* glsl */ `
+  uniform float uTime;   // 지금 시각(초)
+  uniform float uScale;  // 화면 높이에 맞춘 점 크기 배율
+  uniform float uSize;   // 점 크기
+  attribute float aSeed; // 불빛마다 다른 0~1 숫자 (반짝이는 박자와 크기를 다르게)
+  varying float vGlow;
+  void main() {
+    // 불빛마다 다른 박자로 천천히 밝아졌다 어두워집니다 (55% ~ 100%)
+    float twinkle = 0.775 + 0.225 * sin(uTime * (1.2 + aSeed * 2.4) + aSeed * 60.0);
+    vGlow = twinkle;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize * (0.7 + 0.6 * fract(aSeed * 7.0)) * twinkle * uScale / -mv.z; // 멀수록 작게
+  }
+`;
+
+const TWINKLE_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor;      // 불빛 색
+  uniform float uIntensity; // 밝기 (밤에는 크게 → 빛 번짐 효과가 퍼뜨려 줌)
+  uniform float uDay;       // 아침이면 1 (번짐 없이 또렷한 작은 점)
+  varying float vGlow;
+  void main() {
+    float d = length(gl_PointCoord - 0.5) * 2.0; // 점 가운데에서의 거리 (0 ~ 1)
+    if (d > 1.0) discard;
+    // 밤: 가운데 밝은 심 + 부드럽게 번지는 빛 / 아침: 가운데 작은 점만
+    float soft = pow(1.0 - d, 2.2);
+    float core = smoothstep(0.38, 0.0, d);
+    float alpha = mix(soft * 0.85 + core, smoothstep(0.62, 0.3, d), uDay);
+    // 아침에는 초록 잎 위에서 잘 보이도록 노란빛을 진하게, 밤에는 심을 흰빛에 가깝게
+    vec3 color = mix(mix(uColor, vec3(1.0, 0.97, 0.88), core * 0.7), vec3(1.0, 0.86, 0.36), uDay);
+    gl_FragColor = vec4(color * uIntensity * vGlow, alpha * vGlow);
+  }
+`;
+
+/** 매 장면마다 시간과 화면 크기를 꼬마 불빛에 알려 줍니다 */
+function updateTwinkle(material: THREE.ShaderMaterial, time: number, scale: number) {
+  material.uniforms.uTime.value = time;
+  material.uniforms.uScale.value = scale;
+}
+
+function TreeTwinkleLights() {
+  const material = useRef<THREE.ShaderMaterial>(null);
   const night = useNight();
-  useLayoutEffect(() => {
-    const m = mesh.current;
-    if (!m) return;
-    const TURNS = 4.5;
-    const matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
-    for (let i = 0; i < BEAD_COUNT; i++) {
-      const f = i / (BEAD_COUNT - 1);
-      const t = 0.07 + f * 0.8; // 높이 비율
-      const angle = f * TURNS * Math.PI * 2;
-      const r = treeSurfaceRadius(t) + 0.1;
-      matrix.setPosition(Math.sin(angle) * r, t * TREE_HEIGHT, Math.cos(angle) * r);
-      m.setMatrixAt(i, matrix);
-      m.setColorAt(i, color.set(BEAD_COLORS[i % BEAD_COLORS.length]).multiplyScalar(night ? NIGHT_GLOW * 0.55 : 1));
-    }
-    m.instanceMatrix.needsUpdate = true;
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [night]);
+  const geometry = useMemo(
+    () =>
+      buildTwinkleGeometry(window.matchMedia("(pointer: coarse)").matches ? TWINKLE.liteCount : TWINKLE.count),
+    [],
+  );
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uScale: { value: 400 },
+      uSize: { value: TWINKLE.size },
+      uColor: { value: new THREE.Color("#ffd27a") },
+      uIntensity: { value: 1 },
+      uDay: { value: 0 },
+    }),
+    [],
+  );
+  useFrame(({ clock, size, viewport }) => {
+    // 점 크기는 "화면 세로 픽셀 수"에 비례해야 어느 기기에서나 같은 크기로 보입니다
+    if (material.current) updateTwinkle(material.current, clock.elapsedTime, (size.height * viewport.dpr) / 2);
+  });
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, BEAD_COUNT]} frustumCulled={false}>
-      <sphereGeometry args={[BEAD_RADIUS, 8, 8]} />
-      {night ? <meshBasicMaterial toneMapped={false} /> : <meshStandardMaterial roughness={0.55} />}
-    </instancedMesh>
+    <group>
+      <points geometry={geometry} frustumCulled={false}>
+        <shaderMaterial
+          // 밤/아침이 바뀌면 재질을 새로 만듭니다 (섞는 방식이 달라서)
+          key={night ? "night" : "day"}
+          ref={material}
+          vertexShader={TWINKLE_VERTEX}
+          fragmentShader={TWINKLE_FRAGMENT}
+          uniforms={uniforms}
+          uniforms-uIntensity-value={night ? 3.2 : 1.1}
+          uniforms-uDay-value={night ? 0 : 1}
+          uniforms-uSize-value={night ? TWINKLE.size : TWINKLE.size * 0.62}
+          transparent
+          depthWrite={false}
+          // 밤: 빛을 더해서 겹칠수록 밝게 / 아침: 밝은 배경에 묻히지 않게 색을 그대로 얹기
+          blending={night ? THREE.AdditiveBlending : THREE.NormalBlending}
+          toneMapped={false}
+        />
+      </points>
+      {/* 트리 둘레로 은은하게 번지는 따뜻한 빛 (밤에만. 밝은 아침 하늘에서는 보이지 않아서 뺍니다) */}
+      {night && (
+        <sprite position={[0, TREE_HEIGHT * 0.45, 0]} scale={[TREE_HEIGHT * 0.95, TREE_HEIGHT * 1.25, 1]}>
+          <spriteMaterial
+            map={softDot()}
+            color="#ffb860"
+            transparent
+            opacity={0.09}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      )}
+    </group>
   );
 }
 
@@ -718,8 +986,8 @@ export function Decorations({ level, slots }: DecorationsProps) {
       )}
       {keys.has("house_decor") && <HouseDecor slots={slots} />}
       {keys.has("santa_rudolph") && <SantaRudolph />}
-      {keys.has("tree_garland") && <TreeGarland />}
-      {keys.has("tree_garland") && <TreeFairyLights />}
+      {keys.has("tree_lights") && <TreeLights warm={keys.has("tree_lights_upgrade")} />}
+      {keys.has("tree_lights_upgrade") && <TreeTwinkleLights />}
       {keys.has("star") && <StarAndFireworks />}
       <Gifts level={level} />
     </group>
