@@ -12,6 +12,7 @@ import { useAnimations, useGLTF } from "@react-three/drei";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { buildObstacles, resolveCollisions } from "@/lib/village/collision";
+import { findPath } from "@/lib/village/pathfind";
 import { PLAYER_START, type HouseSlot } from "@/lib/village/layout";
 import { useWalkTarget, type WalkStore } from "@/lib/village/walkStore";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
@@ -71,14 +72,20 @@ export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
   const obstacles = useMemo(() => buildObstacles(slots), [slots]);
 
   // 걷기 상태를 담는 값들 (화면을 다시 그리지 않고 프레임마다 바로 읽고 씀)
-  const goal = useRef<{ x: number; z: number } | null>(null);
+  // route: 앞으로 차례로 지나갈 경유지 목록 (맨 앞이 지금 향하는 곳, 마지막이 최종 목표)
+  const route = useRef<{ x: number; z: number }[]>([]);
   const walking = useRef(false);
   const stuckTime = useRef(0);
 
-  // 새 목표가 들어오면: 장애물 안이면 바깥으로, 경계 밖이면 안으로 옮긴 자리를 목표로 삼습니다
+  // 새 목표가 들어오면:
+  //  1) 장애물 안이면 바깥으로, 경계 밖이면 안으로 옮긴 자리를 목표로 삼고
+  //  2) 지금 서 있는 곳에서 그 목표까지, 트리·집을 돌아가는 길(경유지 목록)을 찾습니다 (lib/village/pathfind.ts)
   useEffect(() => {
     if (!target) return;
-    goal.current = resolveCollisions(target, obstacles, boundsRadius, BODY_RADIUS);
+    const goal = resolveCollisions(target, obstacles, boundsRadius, BODY_RADIUS);
+    const g = group.current;
+    const start = g ? { x: g.position.x, z: g.position.z } : PLAYER_START;
+    route.current = findPath(start, goal, obstacles, boundsRadius, BODY_RADIUS);
     stuckTime.current = 0;
   }, [target, obstacles, boundsRadius]);
 
@@ -101,15 +108,16 @@ export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
     const g = group.current;
     if (!g) return;
     const dt = Math.min(delta, 0.05); // 탭 전환 등으로 시간이 크게 튀는 것을 막음
-    const dest = goal.current;
+    const dest = route.current[0];
     if (!dest) return;
 
     const dx = dest.x - g.position.x;
     const dz = dest.z - g.position.z;
     const dist = Math.hypot(dx, dz);
     if (dist < ARRIVE_DISTANCE) {
-      goal.current = null;
-      setWalking(false);
+      // 이 경유지에 도착: 다음 경유지로 넘어가고, 더 없으면 멈춥니다
+      route.current.shift();
+      if (route.current.length === 0) setWalking(false);
       return;
     }
 
@@ -124,7 +132,7 @@ export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
     if (moved < step * 0.25) {
       stuckTime.current += dt;
       if (stuckTime.current > 0.4) {
-        goal.current = null;
+        route.current = [];
         setWalking(false);
         return;
       }
