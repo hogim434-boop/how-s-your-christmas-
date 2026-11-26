@@ -34,21 +34,22 @@ export type TreeModel = {
 
 /** 써 본 대왕 트리 모델들. 아래 TREE_MODEL 한 줄만 바꾸면 트리가 바뀝니다 */
 export const TREE_MODELS = {
-  /** Blender로 직접 만든 전나무 (scripts/blender/make_fir.py로 생성, 우리 프로젝트 자체 제작) */
+  /** Blender로 직접 만든 전나무 (scripts/blender/make_fir.py로 생성, 우리 프로젝트 자체 제작). 11.26: 바늘잎 가지 그림을 입힌 모양으로 다시 만듦 */
   blenderFir: {
     url: "/models/handmade/fir.glb",
     height: 2.0,
+    // scripts/blender/make_fir.py가 만들 때 출력하는 "[make_fir] profile" 값을 그대로 옮긴 것입니다
     profile: [
-      [0.05, 0.62],
-      [0.15, 0.52],
-      [0.25, 0.47],
-      [0.35, 0.43],
-      [0.45, 0.39],
-      [0.55, 0.33],
-      [0.65, 0.28],
+      [0.05, 0.6],
+      [0.15, 0.46],
+      [0.25, 0.41],
+      [0.35, 0.37],
+      [0.45, 0.33],
+      [0.55, 0.29],
+      [0.65, 0.25],
       [0.75, 0.21],
-      [0.85, 0.15],
-      [0.95, 0.1],
+      [0.85, 0.16],
+      [0.95, 0.12],
       [1.0, 0.03],
     ],
     collisionRadius: 4.8,
