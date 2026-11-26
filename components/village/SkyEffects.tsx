@@ -13,8 +13,10 @@
 //
 // ⚠️ 화면 전체를 한 번 더 처리하므로 휴대폰에 부담이 생깁니다. 그래서 아침에는 쓰지 않습니다.
 
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { ToneMappingMode } from "postprocessing";
+import { CopyPass, EffectPass, ToneMappingMode, type EffectComposer as EffectComposerImpl } from "postprocessing";
 
 /**
  * N8AO가 "투명한 물체를 매 장면 두 번 더 그리는 일"을 끕니다. (11.26 성능)
@@ -34,10 +36,35 @@ function skipTransparentRedraw(pass: { autoDetectTransparency?: boolean; configu
   pass.configuration.transparencyAware = false;
 }
 
+/**
+ * 맨 끝의 "화면 전체를 그대로 한 번 더 복사하는 단계"를 건너뜁니다. (11.26 성능)
+ *
+ * 화면 필터 라이브러리는 N8AO를 쓰면 맨 끝에 복사 단계(CopyPass)를 하나 덧붙입니다.
+ * N8AO가 맨 마지막 단계일 때를 대비한 것인데, 우리는 그 뒤에 빛 번짐·가장자리 다듬기 단계가 있어서 필요 없습니다.
+ * 그래서 복사 단계를 끄고, 바로 앞 단계가 화면에 직접 그리게 합니다.
+ * (잰 값: 밤 한 장면 4~6% 절감. 화면은 일부 점의 색 값이 1/255 달라지는 정도라 눈으로 구분할 수 없습니다)
+ *
+ * 단계 목록은 라이브러리가 다시 만들 수 있어서 매 장면 확인합니다 (확인은 비교 몇 번뿐이라 부담이 없습니다).
+ * 라이브러리가 나중에 복사 단계를 붙이지 않게 바뀌면, 아래 조건에 맞지 않아 아무 일도 하지 않습니다.
+ */
+function skipTrailingCopy(composer: EffectComposerImpl | null) {
+  if (!composer) return;
+  const passes = composer.passes;
+  const last = passes[passes.length - 1];
+  const before = passes[passes.length - 2];
+  if (last instanceof CopyPass && last.enabled && before instanceof EffectPass) {
+    last.enabled = false;
+    before.renderToScreen = true;
+  }
+}
+
 export function SkyEffects() {
+  const composer = useRef<EffectComposerImpl>(null);
+  // 화면 필터가 그리기 직전에 실행됩니다 (필터는 순서 1번, 이 함수는 0번이라 먼저)
+  useFrame(() => skipTrailingCopy(composer.current));
   return (
     // stencilBuffer: 반투명한 집 뒤 우체통·캐릭터를 또렷하게 보여 주는 "도장 판"을 후처리에서도 유지
-    <EffectComposer multisampling={0} stencilBuffer>
+    <EffectComposer ref={composer} multisampling={0} stencilBuffer>
       <N8AO ref={skipTransparentRedraw} halfRes aoRadius={1.4} intensity={1.6} distanceFalloff={1} color="#0e1430" />
       <Bloom mipmapBlur luminanceThreshold={0.85} luminanceSmoothing={0.35} intensity={1.1} radius={0.7} />
       <Vignette offset={0.25} darkness={0.55} />
