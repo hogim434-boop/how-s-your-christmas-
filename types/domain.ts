@@ -8,7 +8,7 @@
 // - 칸 이름은 데이터베이스(Supabase)와 똑같이 snake_case(밑줄)로 씁니다.
 // - 날짜·시간은 "2026-12-25T00:00:00+09:00" 같은 글자(ISO 형식)로 다룹니다.
 // - "아직 없음"은 null 로 표시합니다. (예: 아직 열어 보지 않은 편지의 opened_at)
-// - 실제 데이터베이스를 만드는 Task 008에서 Supabase가 자동으로 만들어 주는 타입으로 바꿀 수 있습니다.
+// - Supabase가 자동으로 만들어 준 타입은 types/database.ts에 있습니다 (Task 006). 이 파일은 더 좁은 타입(kind 등)을 위해 그대로 둡니다.
 
 /** 로그인 수단 */
 export type AuthProvider = "line" | "kakao";
