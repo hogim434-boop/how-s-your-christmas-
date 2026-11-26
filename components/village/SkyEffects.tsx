@@ -5,6 +5,7 @@
 //
 // - N8AO: 물체가 맞닿은 구석에 은은한 그림자를 넣어 입체감을 줍니다
 //   (11.25 성능: halfRes = 절반 해상도로 계산. 계산량은 약 1/4, 보기엔 거의 같습니다)
+//   (11.26 성능: 투명한 물체를 따로 두 번 더 그리는 기능을 껐습니다 → 아래 skipTransparentRedraw 설명)
 // - Bloom(빛 번짐): 아주 밝은 곳(전구·가로등) 둘레로 빛이 퍼져 보이게 합니다
 // - Vignette: 화면 가장자리를 어둑하게
 // - ToneMapping(NEUTRAL): 밝기를 자연스럽게 정리
@@ -15,11 +16,29 @@
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
+/**
+ * N8AO가 "투명한 물체를 매 장면 두 번 더 그리는 일"을 끕니다. (11.26 성능)
+ *
+ * N8AO는 장면에 투명한 물체(눈송이·빛 번짐 그림·폭죽 등)가 하나라도 있으면,
+ * 그 물체들에는 구석 그림자가 덧입혀지지 않게 하려고 매 장면마다
+ *   ① 장면의 모든 물체를 네 번 훑고  ② 화면 전체를 두 번 더 칠하고  ③ 투명한 물체를 두 번 더 그립니다.
+ * 우리 마을은 구석 그림자가 옅고 투명한 물체가 작아서, 이 기능을 꺼도 화면이 사실상 똑같습니다.
+ * (휴대폰의 9배 크기 화면으로 잰 값: 한 장면 27ms → 24ms. 계산 장치를 6배 느리게 했을 때: 13.6ms → 9.7ms)
+ *
+ * 💡 ref에 함수를 주면, 그 부품이 만들어지는 순간 React가 이 함수를 불러 줍니다.
+ */
+function skipTransparentRedraw(pass: { autoDetectTransparency?: boolean; configuration: { transparencyAware: boolean } } | null) {
+  if (!pass) return;
+  // 자동 감지를 먼저 꺼야 합니다. 켜 두면 다음 장면에서 투명한 물체를 찾아 기능을 다시 켭니다
+  pass.autoDetectTransparency = false;
+  pass.configuration.transparencyAware = false;
+}
+
 export function SkyEffects() {
   return (
     // stencilBuffer: 반투명한 집 뒤 우체통·캐릭터를 또렷하게 보여 주는 "도장 판"을 후처리에서도 유지
     <EffectComposer multisampling={0} stencilBuffer>
-      <N8AO halfRes aoRadius={1.4} intensity={1.6} distanceFalloff={1} color="#0e1430" />
+      <N8AO ref={skipTransparentRedraw} halfRes aoRadius={1.4} intensity={1.6} distanceFalloff={1} color="#0e1430" />
       <Bloom mipmapBlur luminanceThreshold={0.85} luminanceSmoothing={0.35} intensity={1.1} radius={0.7} />
       <Vignette offset={0.25} darkness={0.55} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
