@@ -7,7 +7,7 @@
 //   3) 아래: 로그아웃(지금은 안내 메시지만), "앱 출시 coming soon" 안내
 // 겹쳐 뜨는 창 뼈대는 components/overlay/Overlay.tsx를 그대로 씁니다.
 
-import { Languages, Link2, LogOut, Mail, Moon, Shirt, Sun, SunMoon, type LucideIcon } from "lucide-react";
+import { ChevronRight, CircleHelp, CircleUserRound, Languages, Link2, LogOut, Mail, Moon, Shirt, Sun, SunMoon, type LucideIcon } from "lucide-react";
 import Overlay from "@/components/overlay/Overlay";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { LOCALE_NAMES, type Locale } from "@/i18n/messages";
@@ -19,16 +19,22 @@ interface MenuSheetProps {
     title: string;
     letterbox: string;
     customize: string;
+    nickname: string;
     invite: string;
     skyMode: string;
     skyNames: Record<SkyMode, string>;
     language: string;
+    howTo: string;
     logout: string;
     comingSoon: string;
   };
   onOpenLetterbox: () => void;
   onOpenCustomize: () => void;
   onCopyInvite: () => void;
+  /** "이용 방법" 안내 창 열기 */
+  onOpenHowTo: () => void;
+  /** 닉네임 바꾸기 창 열기. 없으면 줄을 숨깁니다 (연습용 마을) */
+  onOpenNickname?: () => void;
   /** 지금 하늘 (아침 / 밤) */
   sky: SkyMode;
   onSkyChange: (sky: SkyMode) => void;
@@ -65,6 +71,8 @@ export function MenuSheet({
   onOpenLetterbox,
   onOpenCustomize,
   onCopyInvite,
+  onOpenHowTo,
+  onOpenNickname,
   sky,
   onSkyChange,
   locale,
@@ -111,6 +119,32 @@ export function MenuSheet({
               options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))}
             />
           </div>
+          {onOpenNickname && (
+            <>
+              <span className="mx-4 h-px bg-[#e2e4ec]" aria-hidden="true" />
+              {/* 이 마을에서 쓰는 닉네임 바꾸기: 줄 전체가 버튼입니다 */}
+              <button
+                type="button"
+                onClick={onOpenNickname}
+                className="flex min-h-14 items-center gap-3 px-4 text-left transition active:bg-black/5"
+              >
+                <CircleUserRound className="size-5 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{labels.nickname}</span>
+                <ChevronRight className="size-4 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+              </button>
+            </>
+          )}
+          <span className="mx-4 h-px bg-[#e2e4ec]" aria-hidden="true" />
+          {/* 이용 방법 다시 보기: 줄 전체가 버튼입니다 */}
+          <button
+            type="button"
+            onClick={onOpenHowTo}
+            className="flex min-h-14 items-center gap-3 rounded-b-2xl px-4 text-left transition active:bg-black/5"
+          >
+            <CircleHelp className="size-5 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{labels.howTo}</span>
+            <ChevronRight className="size-4 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+          </button>
         </div>
 
         {/* 3) 로그아웃 + 안내 */}
