@@ -1,5 +1,5 @@
 // 장식표: 진행률 단계(1~10)마다 마을에 어떤 장식이 보이는지 정해 둔 표입니다.
-// 근거: docs/prd.md "장식표" [확정 11.23 추가 논의] (노션 "장식표" 데이터베이스 기준)
+// 근거: docs/prd.md "장식표" [확정 11.26 미팅 #21] (노션 "장식표 (11.26)" 데이터베이스 기준)
 //
 // 장식 규칙을 바꾸고 싶으면 이 파일만 고치면 됩니다. (화면 코드는 이 표를 읽어서 그립니다)
 // 화면에 보이는 장식 이름(일본어·한국어)은 3D 화면을 만들 때 i18n/messages.ts에 넣습니다.
@@ -16,14 +16,14 @@ export const GIFT_STACK_LEVELS: readonly number[] = [4, 7, 10];
 /** 장식 종류 이름(키). 3D 모델과 문구를 찾을 때 이 이름을 씁니다. */
 export type DecorKey =
   | "string_lights" // 가로등 사이 알전구 줄
-  | "red_bauble" // 빨간 방울
-  | "yellow_bell" // 노란 종
+  | "red_bauble" // 빨간 방울 (+ 초록 방울)
+  | "tree_lights" // 트리를 빙글빙글 감는 알록달록 전구 줄
+  | "stocking" // 산타 양말 (+ 지팡이 사탕 + 노란 종)
   | "house_decor" // 집 옆 인형 또는 트리 + 집 정면 전구 줄
-  | "stocking" // 산타 양말
-  | "snowflake" // 눈송이
-  | "cookie" // 쿠키
+  | "snowflake" // 눈송이 (+ 쿠키)
   | "santa_rudolph" // 산타 & 루돌프 인형
-  | "tree_garland" // 트리를 감싸는 빛나는 줄
+  | "ornament_upgrade" // 오너먼트 업그레이드 (도안 미정 → 아직 화면에 그리는 것 없음)
+  | "tree_lights_upgrade" // 전구 줄 업그레이드: 트리 가득 따뜻한 꼬마 불빛 + 트리가 스스로 빛남
   | "star"; // 대왕별 (+ 폭죽)
 
 export type DecorStage = {
@@ -39,28 +39,37 @@ export type DecorStage = {
 /**
  * 단계별 장식 목록. 앞 단계 장식은 그대로 남고 쌓입니다.
  * (선물은 이 표와 별개로 단계마다 1개씩 늘어납니다 → giftLayout 참고)
- * 11.25 사용자 요청: 트리(특히 위쪽) 장식이 부족해 보여 "짝꿍 장식"을 더했습니다. 단계는 그대로입니다.
- *  - 2단계 빨간 방울 3개 + 초록 방울 3개
- *  - 5단계 산타 양말 3개 + 지팡이 사탕 3개
- *  - 9단계 구슬 줄 + 꼬마전구 줄
- *  아래 count는 원래 장식의 개수이고, 짝꿍 장식은 화면 코드(components/village/Decorations.tsx)가 같은 단계에 함께 그립니다.
+ *
+ * 11.26 미팅(#21)에서 순서를 다시 정했습니다. (노션 "장식표 (11.26)" 기준)
+ *  - 3단계 전구 줄 추가: 알록달록한 전구 줄을 트리에 빙글빙글 감음
+ *  - 4단계 산타 양말 3개 + 지팡이 사탕 3개 + 노란 종 3개
+ *  - 6단계 눈송이 3개 + 쿠키 3개
+ *  - 8단계 오너먼트 업그레이드: 도안이 아직 정해지지 않아 화면에 그리는 것이 없습니다 (선물만 1개 늘어남)
+ *  - 9단계 전구 줄 업그레이드: 알록달록한 줄이 금빛 줄로 바뀌고, 트리 전체에 따뜻한 꼬마 불빛이 켜지고 트리가 스스로 빛남
+ *  아래 count는 대표 장식의 개수이고, 함께 나오는 짝꿍 장식(초록 방울, 지팡이 사탕, 노란 종, 쿠키)은
+ *  화면 코드(components/village/Decorations.tsx)가 같은 단계에 함께 그립니다.
  */
 export const DECOR_STAGES: readonly DecorStage[] = [
   { level: 1, key: "string_lights", count: null, ornament: false },
   { level: 2, key: "red_bauble", count: 3, ornament: true },
-  { level: 3, key: "yellow_bell", count: 3, ornament: true },
-  { level: 4, key: "house_decor", count: null, ornament: false },
-  { level: 5, key: "stocking", count: 3, ornament: true },
+  { level: 3, key: "tree_lights", count: 1, ornament: false },
+  { level: 4, key: "stocking", count: 3, ornament: true },
+  { level: 5, key: "house_decor", count: null, ornament: false },
   { level: 6, key: "snowflake", count: 3, ornament: true },
-  { level: 7, key: "cookie", count: 3, ornament: true },
-  { level: 8, key: "santa_rudolph", count: 1, ornament: false },
-  { level: 9, key: "tree_garland", count: 1, ornament: false },
+  { level: 7, key: "santa_rudolph", count: 1, ornament: false },
+  { level: 8, key: "ornament_upgrade", count: null, ornament: true },
+  { level: 9, key: "tree_lights_upgrade", count: 1, ornament: false },
   { level: 10, key: "star", count: 1, ornament: false },
 ];
 
 /** 지금 단계에서 마을에 보여야 하는 장식 목록 (1단계부터 지금 단계까지) */
 export function visibleStages(level: number): DecorStage[] {
   return DECOR_STAGES.filter((stage) => stage.level <= level);
+}
+
+/** 지금 단계에서 이 장식이 보이는지 */
+export function hasDecor(level: number, key: DecorKey): boolean {
+  return DECOR_STAGES.some((stage) => stage.key === key && stage.level <= level);
 }
 
 export type GiftPlacement = {

@@ -2,7 +2,7 @@
 // 로드맵 Task 003 테스트 체크리스트 + 11.25 결정(장식은 지금 진행률을 따름)을 확인합니다.
 
 import { describe, expect, it } from "vitest";
-import { giftLayout, visibleStages } from "./decorTable";
+import { giftLayout, hasDecor, visibleStages } from "./decorTable";
 import {
   computeDecorLevel,
   isStarAttached,
@@ -101,13 +101,20 @@ describe("새 장식 알림", () => {
 });
 
 describe("장식표와 선물", () => {
-  it("지금 단계까지의 장식만 보임 (3단계 → 알전구·방울·종)", () => {
+  it("지금 단계까지의 장식만 보임 (3단계 → 알전구·방울·트리 전구 줄)", () => {
     expect(visibleStages(3).map((s) => s.key)).toEqual([
       "string_lights",
       "red_bauble",
-      "yellow_bell",
+      "tree_lights",
     ]);
     expect(visibleStages(0)).toEqual([]);
+  });
+
+  it("전구 줄은 3단계에 달리고 9단계에 업그레이드됨", () => {
+    expect(hasDecor(2, "tree_lights")).toBe(false);
+    expect(hasDecor(3, "tree_lights")).toBe(true);
+    expect(hasDecor(8, "tree_lights_upgrade")).toBe(false);
+    expect(hasDecor(9, "tree_lights_upgrade")).toBe(true);
   });
 
   it("선물은 단계마다 1개씩 늘고, 4·7·10단계 선물만 위에 쌓음", () => {
