@@ -5,39 +5,26 @@
 // - 가는 방향으로 부드럽게 몸을 돌리고, 도착하면 멈춥니다.
 // - 서 있을 땐 Unarmed_Idle, 걸을 땐 Walking_A 동작을 서로 부드럽게 섞어 보여 줍니다.
 // - 트리·집·우체통·가로등과 마을 경계는 buildObstacles가 만든 동그라미로 막습니다.
+// 💡 "한 장면 동안 얼마나 걷는지" 계산은 lib/village/walker.ts에 있습니다. (Task 025-2)
+//    같은 마을에 접속한 다른 주민(RemotePlayers.tsx)도 같은 계산을 써서, 누구의 화면에서든 똑같이 걷습니다.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useAnimations, useGLTF } from "@react-three/drei";
-import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
-import { buildObstacles, resolveCollisions } from "@/lib/village/collision";
-import { findPath } from "@/lib/village/pathfind";
+import { buildObstacles, type Point } from "@/lib/village/collision";
 import { PLAYER_START, type HouseSlot } from "@/lib/village/layout";
+import { createWalker, planRoute, stepWalker } from "@/lib/village/walker";
 import { useWalkTarget, type WalkStore } from "@/lib/village/walkStore";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
-import { markShowThrough } from "./showThrough";
+import { CHARACTER_MODEL_URL, FADE_SECONDS, IDLE_CLIP, WALK_CLIP, prepareCharacter } from "./characterModel";
 import { useNight } from "./nightContext";
 import { softDot } from "./particles";
 
-const MODEL_URL = "/models/character/Rogue.glb";
-/** 걷는 속도 (3D 길이 단위/초) */
-const WALK_SPEED = 4.5;
-/** 몸 반지름 (충돌 계산용) */
-const BODY_RADIUS = 0.5;
-/** 도착으로 보는 거리 */
-const ARRIVE_DISTANCE = 0.08;
-/** 몸 돌리는 빠르기 (클수록 빨리 돌아봄) */
-const TURN_SPEED = 12;
-/** 동작 섞는 시간(초) */
-const FADE_SECONDS = 0.25;
 /** 캐릭터 크기 배율 */
-const PLAYER_SCALE = 1;
-/** 무기 모델(캐릭터 손에 붙어 있는 칼·석궁)은 숨깁니다 */
-const HIDDEN_PARTS = ["Knife_Offhand", "1H_Crossbow", "2H_Crossbow", "Knife", "Throwable"];
-
-const IDLE_CLIP = "Unarmed_Idle";
-const WALK_CLIP = "Walking_A";
+export const PLAYER_SCALE = 1;
+/** 그림자를 만들지 않는 물체라는 표시 (ShadowFlags.tsx가 읽습니다). 움직이는 캐릭터는 발밑의 둥근 그림자로 대신합니다 */
+export const NO_SHADOW_CAST = { noShadowCast: true } as const;
 
 interface PlayerProps {
   /** 걸어갈 목표가 담긴 보관함. 목표가 바뀌면 캐릭터만 다시 그려집니다 (lib/village/walkStore.ts) */
@@ -48,46 +35,43 @@ interface PlayerProps {
   boundsRadius: number;
   /** 땅 높이. 눈 둔덕을 오르내리며 걷도록 발 높이를 맞춥니다 */
   heightAt: (x: number, z: number) => number;
+  /** 처음 서 있을 자리. 주지 않으면 광장 앞 기본 자리(PLAYER_START) */
+  start?: Point;
 }
 
-export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
+export function Player({ store, slots, boundsRadius, heightAt, start }: PlayerProps) {
   // 걸어갈 목표. 땅을 누를 때마다 id가 바뀝니다. 없으면 제자리
   const target = useWalkTarget(store);
   const night = useNight();
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(MODEL_URL);
+  const { scene, animations } = useGLTF(CHARACTER_MODEL_URL);
 
-  // 스킨(뼈대) 모델은 일반 clone이 아니라 SkeletonUtils.clone으로 복사해야 합니다
-  const model = useMemo(() => {
-    const copy = cloneSkinned(scene);
-    copy.traverse((child) => {
-      if (HIDDEN_PARTS.includes(child.name)) child.visible = false;
-    });
-    // 반투명해진 집 뒤에 있어도 캐릭터는 또렷하게 보이게 합니다 (showThrough.ts)
-    markShowThrough(copy);
-    return copy;
-  }, [scene]);
+  // 받아 온 모델에서 캐릭터 한 명을 복사합니다 (characterModel.ts)
+  const model = useMemo(() => prepareCharacter(scene), [scene]);
 
   const { actions } = useAnimations(animations, group);
   const obstacles = useMemo(() => buildObstacles(slots), [slots]);
 
-  // 걷기 상태를 담는 값들 (화면을 다시 그리지 않고 프레임마다 바로 읽고 씀)
-  // route: 앞으로 차례로 지나갈 경유지 목록 (맨 앞이 지금 향하는 곳, 마지막이 최종 목표)
-  const route = useRef<{ x: number; z: number }[]>([]);
-  const walking = useRef(false);
-  const stuckTime = useRef(0);
+  // 처음 서 있을 자리 (처음 한 번만 정합니다. 나중에 값이 바뀌어도 캐릭터가 갑자기 옮겨 가지 않게)
+  const [spawn] = useState(() => {
+    const p = start ?? PLAYER_START;
+    return { x: p.x, y: start ? heightAt(p.x, p.z) : 0, z: p.z };
+  });
 
-  // 새 목표가 들어오면:
-  //  1) 장애물 안이면 바깥으로, 경계 밖이면 안으로 옮긴 자리를 목표로 삼고
-  //  2) 지금 서 있는 곳에서 그 목표까지, 트리·집을 돌아가는 길(경유지 목록)을 찾습니다 (lib/village/pathfind.ts)
+  // 걷기 상태 (자리·방향·앞으로 지나갈 경유지). 화면을 다시 그리지 않고 프레임마다 바로 읽고 씁니다
+  const walker = useRef(createWalker(spawn.x, spawn.z));
+  const walking = useRef(false);
+
+  // 새 목표가 들어오면 지금 서 있는 곳에서 그 목표까지, 트리·집을 돌아가는 길을 찾습니다 (walker.ts의 planRoute)
   useEffect(() => {
     if (!target) return;
-    const goal = resolveCollisions(target, obstacles, boundsRadius, BODY_RADIUS);
-    const g = group.current;
-    const start = g ? { x: g.position.x, z: g.position.z } : PLAYER_START;
-    route.current = findPath(start, goal, obstacles, boundsRadius, BODY_RADIUS);
-    stuckTime.current = 0;
+    planRoute(walker.current, target, obstacles, boundsRadius);
   }, [target, obstacles, boundsRadius]);
+
+  // 처음 선 자리를 보관함에 적어 둡니다 (함께 걷기에서 다른 주민에게 내 자리를 알릴 때 씁니다)
+  useEffect(() => {
+    store.setPos(walker.current.x, walker.current.z);
+  }, [store]);
 
   // 처음에는 서 있는 동작
   useEffect(() => {
@@ -107,55 +91,37 @@ export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
   useFrame((_, delta) => {
     const g = group.current;
     if (!g) return;
-    const dt = Math.min(delta, 0.05); // 탭 전환 등으로 시간이 크게 튀는 것을 막음
-    const dest = route.current[0];
-    if (!dest) return;
-
-    const dx = dest.x - g.position.x;
-    const dz = dest.z - g.position.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist < ARRIVE_DISTANCE) {
-      // 이 경유지에 도착: 다음 경유지로 넘어가고, 더 없으면 멈춥니다
-      route.current.shift();
-      if (route.current.length === 0) setWalking(false);
+    const w = walker.current;
+    // 서 있는 중이면(경유지가 없으면) 아무것도 하지 않습니다
+    if (w.route.length === 0) return;
+    const before = w.route.length;
+    const x = w.x;
+    const z = w.z;
+    const stillWalking = stepWalker(w, delta, obstacles, boundsRadius);
+    if (!stillWalking) {
+      // 도착했거나 막혀서 멈춤
+      setWalking(false);
       return;
     }
-
-    // 이번 프레임에 가려는 거리 (남은 거리보다 멀리 가지 않음)
-    const step = Math.min(WALK_SPEED * dt, dist);
-    const wanted = { x: g.position.x + (dx / dist) * step, z: g.position.z + (dz / dist) * step };
-    // 장애물을 만나면 바깥으로 밀려나서 가장자리를 따라 미끄러집니다
-    const next = resolveCollisions(wanted, obstacles, boundsRadius, BODY_RADIUS);
-    const moved = Math.hypot(next.x - g.position.x, next.z - g.position.z);
-
-    // 거의 못 움직이는 상태가 0.4초 이어지면(정면으로 막힘) 멈춥니다
-    if (moved < step * 0.25) {
-      stuckTime.current += dt;
-      if (stuckTime.current > 0.4) {
-        route.current = [];
-        setWalking(false);
-        return;
-      }
-    } else {
-      stuckTime.current = 0;
-    }
-
-    // 실제로 움직인 방향으로 몸을 부드럽게 돌립니다 (각도의 가장 짧은 길로)
-    if (moved > 1e-5) {
-      const heading = Math.atan2(next.x - g.position.x, next.z - g.position.z);
-      let diff = heading - g.rotation.y;
-      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      g.rotation.y += diff * Math.min(1, TURN_SPEED * dt);
-    }
-    g.position.x = next.x;
-    g.position.z = next.z;
+    // 경유지 하나에 막 도착한 장면: 자리는 그대로이고 다음 경유지로 넘어가기만 합니다
+    if (w.route.length !== before && w.x === x && w.z === z) return;
+    g.rotation.y = w.rotY;
+    g.position.x = w.x;
+    g.position.z = w.z;
     // 둔덕 높이에 발을 맞춥니다 (계산은 이 한 점뿐이라 가볍습니다)
-    g.position.y = heightAt(next.x, next.z);
+    g.position.y = heightAt(w.x, w.z);
+    store.setPos(w.x, w.z);
     setWalking(true);
   });
 
   return (
-    <group ref={group} name={PLAYER_OBJECT_NAME} position={[PLAYER_START.x, 0, PLAYER_START.z]} scale={PLAYER_SCALE}>
+    <group
+      ref={group}
+      name={PLAYER_OBJECT_NAME}
+      position={[spawn.x, spawn.y, spawn.z]}
+      scale={PLAYER_SCALE}
+      userData={NO_SHADOW_CAST}
+    >
       <primitive object={model} />
       {/* 밤: 발밑의 둥근 그림자 (달빛 그림자를 매번 다시 그리지 않으려고 캐릭터 그림자는 이걸로 대신합니다) */}
       {night && (
@@ -168,4 +134,4 @@ export function Player({ store, slots, boundsRadius, heightAt }: PlayerProps) {
   );
 }
 
-useGLTF.preload(MODEL_URL);
+useGLTF.preload(CHARACTER_MODEL_URL);

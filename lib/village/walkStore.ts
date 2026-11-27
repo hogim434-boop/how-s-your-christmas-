@@ -20,13 +20,29 @@ export type WalkStore = {
   set: (point: { x: number; z: number }) => void;
   /** 목표가 바뀔 때 불러 줄 함수 등록. 돌려받은 함수를 부르면 등록이 풀립니다 */
   subscribe: (listener: () => void) => () => void;
+  /**
+   * 내 캐릭터가 지금 서 있는 자리 (캐릭터가 아직 그려지기 전이면 null).
+   * 함께 걷기(Task 025-5)에서 다른 주민에게 "나 지금 여기 있어요"를 알릴 때 읽습니다.
+   */
+  getPos: () => { x: number; z: number } | null;
+  /** 캐릭터가 움직일 때마다 자리를 적어 둡니다. 아무에게도 알리지 않으므로 화면이 다시 그려지지 않습니다 */
+  setPos: (x: number, z: number) => void;
 };
 
 export function createWalkStore(): WalkStore {
   let target: WalkTarget | null = null;
   const listeners = new Set<() => void>();
+  // 지금 자리는 같은 객체의 숫자만 고쳐 씁니다 (걷는 동안 매 장면 불리므로 새로 만들지 않습니다)
+  const pos = { x: 0, z: 0 };
+  let hasPos = false;
   return {
     get: () => target,
+    getPos: () => (hasPos ? pos : null),
+    setPos: (x, z) => {
+      pos.x = x;
+      pos.z = z;
+      hasPos = true;
+    },
     set: (point) => {
       target = { x: point.x, z: point.z, id: (target?.id ?? 0) + 1 };
       listeners.forEach((listener) => listener());
