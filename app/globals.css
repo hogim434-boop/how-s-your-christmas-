@@ -186,3 +186,49 @@
     transform: translateY(70vh) scale(0.45) rotate(8deg);
   }
 }
+
+/* 편지 열기 연출 (components/letters/LetterReader.tsx) — 받은 편지를 처음 열 때만 */
+/* 1) 봉투가 통 튀어 나옵니다 */
+@keyframes envelope-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.6);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* 2) 봉투 뚜껑이 위로 젖혀집니다 (윗변을 축으로 뒤집기) */
+@keyframes envelope-flap-open {
+  0% {
+    transform: rotateX(0deg);
+  }
+  100% {
+    transform: rotateX(180deg);
+  }
+}
+/* 3) 봉투 속 편지지가 위로 올라옵니다 */
+@keyframes letter-peek {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-58%);
+  }
+}
+/* 4) 편지지가 펼쳐지며 자리를 잡습니다 */
+@keyframes letter-unfold {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.72);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
