@@ -17,8 +17,17 @@ export function loadLocale(): Locale {
   return v === "ja" || v === "ko" ? v : DEFAULT_LOCALE;
 }
 
+/**
+ * 언어가 바뀌었음을 알리는 신호의 이름.
+ * 💡 저장 공간(localStorage)은 값이 바뀌어도 같은 탭에는 알려 주지 않습니다.
+ *    그래서 저장할 때 이 신호를 직접 보내, 화면(LocaleProvider)이 바로 새 언어로 다시 그리게 합니다.
+ */
+export const LOCALE_CHANGE_EVENT = "hyc:locale-change";
+
 export function saveLocale(locale: Locale) {
   writeStorage(LOCALE_KEY, locale);
+  // 서버에서 불릴 때는 window가 없으므로 건너뜁니다
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCALE_CHANGE_EVENT));
 }
 
 /** 저장해 둔 하늘 종류 (없거나 이상한 값이면 아침) */
