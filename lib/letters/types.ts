@@ -21,6 +21,8 @@ export type ReceivedLetter = {
   senderName: string | null;
   content: string | null;
   paper: PaperKey | null;
+  /** 내가 이 편지를 처음 연 시각 (아직 안 열었거나 잠겨 있으면 null) → 개봉 연출과 "안 읽음" 표시에 씁니다 */
+  openedAt: string | null;
 };
 
 /** 데이터베이스의 편지 줄(보낸 편지에 필요한 칸만) */

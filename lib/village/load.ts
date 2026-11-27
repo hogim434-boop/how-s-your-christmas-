@@ -47,7 +47,7 @@ export async function loadVillage(villageId: string, userId: string): Promise<Vi
   // 💡 잠금 전에 편지 표를 읽어도 보안 규칙이 한 줄도 돌려주지 않습니다. 화면에서 숨기는 것이 아니라
   //    데이터베이스가 아예 내려주지 않기 때문에, 개발자 도구로도 미리 볼 수 없습니다.
   const receivedQuery = lettersClosed
-    ? supabase.from("letters").select("id, sender_id, content, paper").eq("village_id", villageId).eq("recipient_id", userId).order("created_at")
+    ? supabase.from("letters").select("id, sender_id, content, paper, opened_at").eq("village_id", villageId).eq("recipient_id", userId).order("created_at")
     : supabase.rpc("received_letters_locked", { p_village: villageId });
   const [usersResult, receivedResult] = await Promise.all([
     supabase.from("users").select("id, name").in("id", userIds),

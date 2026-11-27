@@ -35,6 +35,8 @@ describe("받은 편지 목록", () => {
   });
   it("열리면 보낸 사람과 내용이 있다", () => {
     expect(receivedLetters(village, false).every((l) => l.senderName && l.content)).toBe(true);
+    // 연습용 편지는 늘 아직 안 연 편지로 시작합니다 (개봉 연출 확인용)
+    expect(receivedLetters(village, false).every((l) => l.openedAt === null)).toBe(true);
   });
   it("주민이 나 혼자면 받은 편지가 없다", () => {
     expect(receivedLetters(getDummyVillage({ id: "demo", n: 1, level: 0 }), true)).toEqual([]);

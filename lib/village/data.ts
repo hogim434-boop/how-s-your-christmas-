@@ -64,7 +64,7 @@ export type VillageRows = {
    * 내가 받은 편지 줄들.
    * 잠금 시각 전에는 데이터베이스가 번호만 돌려줍니다(보낸 사람·내용 칸이 아예 없음).
    */
-  receivedLetters: { id: string; sender_id?: string; content?: string; paper?: string }[];
+  receivedLetters: { id: string; sender_id?: string; content?: string; paper?: string; opened_at?: string | null }[];
 };
 
 /**
@@ -115,6 +115,8 @@ export function toVillageData(rows: VillageRows): VillageData {
       senderName: l.sender_id === undefined ? null : names[l.sender_id]?.trim() || DEFAULT_NAME,
       content: l.content ?? null,
       paper: l.paper === undefined ? null : toPaperKey(l.paper),
+      // 처음 연 시각. 잠긴 편지에는 이 칸이 아예 오지 않습니다
+      openedAt: l.opened_at ?? null,
     })),
     isDemo: false,
   };

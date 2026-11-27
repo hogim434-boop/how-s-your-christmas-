@@ -29,6 +29,8 @@ export function receivedLetters(village: DummyVillage, locked: boolean): Receive
       senderName: locked ? null : r.name,
       content: locked ? null : SAMPLE_RECEIVED,
       paper: locked ? null : "snow",
+      // 연습용 편지는 늘 "아직 안 연 편지"로 시작합니다 (새로고침하면 개봉 연출을 다시 볼 수 있음)
+      openedAt: null,
     }));
 }
 

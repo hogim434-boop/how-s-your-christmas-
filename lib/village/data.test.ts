@@ -80,21 +80,22 @@ describe("toVillageData", () => {
   it("받은 편지: 잠겨 있으면 번호만, 풀렸으면 보낸 사람 이름과 내용", () => {
     const lockedData = toVillageData(rows({ receivedLetters: [{ id: "l1" }, { id: "l2" }] }));
     expect(lockedData.receivedLetters).toEqual([
-      { id: "l1", senderName: null, content: null, paper: null },
-      { id: "l2", senderName: null, content: null, paper: null },
+      { id: "l1", senderName: null, content: null, paper: null, openedAt: null },
+      { id: "l2", senderName: null, content: null, paper: null, openedAt: null },
     ]);
     const open = toVillageData(
       rows({
         lettersClosed: true,
         receivedLetters: [
-          { id: "l1", sender_id: "u1", content: "메리 크리스마스", paper: "snow" },
-          { id: "l2", sender_id: "떠난 사람", content: "잘 지내", paper: "모르는 편지지" },
+          // l1은 이미 열어 본 편지(처음 연 시각이 있음), l2는 아직 안 연 편지
+          { id: "l1", sender_id: "u1", content: "메리 크리스마스", paper: "snow", opened_at: "2026-12-25T00:10:00+09:00" },
+          { id: "l2", sender_id: "떠난 사람", content: "잘 지내", paper: "모르는 편지지", opened_at: null },
         ],
       }),
     );
     expect(open.receivedLetters).toEqual([
-      { id: "l1", senderName: "하은", content: "메리 크리스마스", paper: "snow" },
-      { id: "l2", senderName: "Friend", content: "잘 지내", paper: "plain" },
+      { id: "l1", senderName: "하은", content: "메리 크리스마스", paper: "snow", openedAt: "2026-12-25T00:10:00+09:00" },
+      { id: "l2", senderName: "Friend", content: "잘 지내", paper: "plain", openedAt: null },
     ]);
   });
 
