@@ -9,6 +9,7 @@ import { readStorage, writeStorage } from "@/lib/storage";
 const LOCALE_KEY = "hyc.locale";
 const SKY_KEY = "hyc.sky";
 const INTRO_KEY = "hyc.introSeen";
+const MENU_HINT_KEY = "hyc.menuHintSeen";
 
 /** 저장해 둔 언어 (없거나 이상한 값이면 기본 언어) */
 export function loadLocale(): Locale {
@@ -37,4 +38,13 @@ export function loadIntroSeen(): boolean {
 
 export function saveIntroSeen() {
   writeStorage(INTRO_KEY, "1");
+}
+
+/** 메뉴 버튼을 가리키는 안내 말풍선을 이미 봤는지 (이 브라우저 기준, 한 번만 보여 줍니다) */
+export function loadMenuHintSeen(): boolean {
+  return readStorage(MENU_HINT_KEY) === "1";
+}
+
+export function saveMenuHintSeen() {
+  writeStorage(MENU_HINT_KEY, "1");
 }
