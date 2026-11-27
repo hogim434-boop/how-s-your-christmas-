@@ -9,6 +9,7 @@
 import type { CSSProperties } from "react";
 import { DM_Serif_Display } from "next/font/google";
 import { MessageCircle } from "lucide-react";
+import { LanguageButton } from "@/components/LanguageButton";
 import { useMessages } from "@/i18n/LocaleContext";
 import type { Messages } from "@/i18n/messages";
 import type { AuthError, Notice } from "@/lib/auth/next";
@@ -75,6 +76,13 @@ export function LoginScreen({ inviteCode, inviteVillageName, next, error, notice
       {/* 위·아래 그늘: 카드 상자 없이도 글자가 또렷하게 보이도록, 밤하늘색을 위아래에서 옅게 덮습니다 */}
       <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[38%] bg-gradient-to-b from-[#0d1330]/80 via-[#0d1330]/35 to-transparent" />
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-[#0a0f28]/90 via-[#0a0f28]/45 to-transparent" />
+
+      {/* ── 오른쪽 위: 언어 고르기(지구본) 버튼 ── 로그인 전에도 언어를 바꿀 수 있게 합니다 (11.27 사용자 요청) */}
+      {/* z-10: 아래 로고·안내 글자보다 위에 떠서, 펼친 목록이 가려지지 않게 합니다. safe-area: 휴대폰 위쪽 노치를 피합니다 */}
+      {/* 자리를 잡는 상자(absolute)와 버튼(안에서 목록의 기준점이 되는 relative)을 나눕니다. 한 요소에 둘을 같이 쓰면 자리가 어긋납니다 */}
+      <div className={`${RISE} pointer-events-auto absolute right-4 top-[max(0.75rem,env(safe-area-inset-top))] z-10`}>
+        <LanguageButton />
+      </div>
 
       {/* ── 위: 로고 ── */}
       <header className="relative flex flex-col items-center px-6 pt-[max(3.25rem,calc(env(safe-area-inset-top)+2rem))] text-center">
