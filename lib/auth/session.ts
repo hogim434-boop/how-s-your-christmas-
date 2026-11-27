@@ -40,6 +40,27 @@ export async function getMyVillageIds(userId: string, client?: SupabaseClient<Da
 }
 
 /** 쿠키에 기억해 둔 "마지막으로 들어간 마을" 번호 (없으면 null) */
+/**
+ * 내 로그인 닉네임(LINE·카카오에서 받아 온 이름). 닉네임 입력칸에 미리 채워 두는 데 씁니다.
+ * 읽지 못하면 빈 글자 (입력칸이 빈 채로 시작할 뿐, 화면은 그대로 동작합니다)
+ */
+export async function getMyLoginName(userId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("users").select("name").eq("id", userId).maybeSingle();
+  return data?.name ?? "";
+}
+
+/**
+ * 초대 코드의 마을에 내가 이미 살고 있으면 그 마을 번호, 아니면 null.
+ * 💡 마을 표는 "그 마을 주민만 읽기" 규칙이라, 주민이 아니면 데이터베이스가 한 줄도 돌려주지 않습니다.
+ *    그래서 "읽혔다 = 이미 주민이다"로 알 수 있습니다.
+ */
+export async function findMyVillageByInvite(code: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("villages").select("id").eq("invite_code", code).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function getLastVillageId(): Promise<string | null> {
   return (await cookies()).get(LAST_VILLAGE_COOKIE)?.value ?? null;
 }
