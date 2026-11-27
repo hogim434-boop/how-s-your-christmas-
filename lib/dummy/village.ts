@@ -4,6 +4,7 @@
 
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
 import type { VillageData, VillageResident } from "@/lib/village/data";
+import { MAX_GHOSTS } from "./ghosts";
 
 export const MIN_RESIDENTS = 1;
 export const MAX_RESIDENTS = 20;
@@ -78,11 +79,24 @@ export type DummyOptions = {
   customize: boolean;
   /** true면 12.25가 지난 것처럼 편지 잠금을 풉니다 (잠금 해제 뒤 화면 확인용) */
   unlock: boolean;
+  /** 개발용: 다른 주민이 접속해 있는 것처럼 보여 줄 가짜 주민 수 (0~30). 함께 걷기(Task 025·026) 확인·성능 측정용 */
+  ghosts: number;
+  /** 개발용: true면 가짜 주민이 걸어 다닙니다 */
+  ghostwalk: boolean;
+  /** 개발용: true면 화면에 초당 장면 수(FPS)를 보여 줍니다 */
+  fps: boolean;
+  /** 개발용: true면 다른 주민을 예전 방식(한 명씩 따로 그리기)으로 그립니다. 새 방식(Task 026)과 비교할 때 씁니다 */
+  classic: boolean;
 };
+
+/** 개발용 옵션(가짜 주민·FPS 표시·장식 슬라이더)을 모두 끕니다. 운영에서 진짜 마을을 열 때 씁니다 */
+export function withoutDevOptions(options: DummyOptions): DummyOptions {
+  return { ...options, dev: false, ghosts: 0, ghostwalk: false, fps: false, classic: false };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** 주소 뒤의 ?n=6&level=3&dev=1&tree=1 같은 값을 읽습니다. 없으면 기본값(n=6, level=0, 나머지는 false). tree=1은 "트리 전체 보기" 카메라, customize=1은 꾸미기 창 바로 열기, unlock=1은 편지 잠금 풀기 확인용입니다. */
+/** 주소 뒤의 ?n=6&level=3&dev=1&tree=1 같은 값을 읽습니다. ghosts=5&ghostwalk=1&fps=1&classic=1은 함께 걷기(Task 025·026) 개발용입니다. 없으면 기본값(n=6, level=0, 나머지는 false). tree=1은 "트리 전체 보기" 카메라, customize=1은 꾸미기 창 바로 열기, unlock=1은 편지 잠금 풀기 확인용입니다. */
 export function parseDummyOptions(params: SearchParams): DummyOptions {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const num = (v: string | string[] | undefined, fallback: number) => {
@@ -100,5 +114,9 @@ export function parseDummyOptions(params: SearchParams): DummyOptions {
     tree: first(params.tree) === "1",
     customize: first(params.customize) === "1",
     unlock: first(params.unlock) === "1",
+    ghosts: clamp(num(params.ghosts, 0), 0, MAX_GHOSTS),
+    ghostwalk: first(params.ghostwalk) === "1",
+    fps: first(params.fps) === "1",
+    classic: first(params.classic) === "1",
   };
 }
