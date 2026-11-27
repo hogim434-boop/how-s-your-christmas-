@@ -93,6 +93,14 @@ export type Messages = {
   letterboxSent: string;
   letterLocked: string;
   letterLockedUntil: string;
+  /** 편지 읽기 창의 제목. {name} = 보낸 사람 */
+  letterReadTitle: string;
+  /** 아직 열어 보지 않은 편지에 붙는 표시 */
+  letterUnread: string;
+  /** 안 읽은 편지 줄의 안내 (내용 대신 보여 줌) */
+  letterTapToOpen: string;
+  /** 봉투가 열리는 동안의 안내 (누르면 연출을 건너뜀) */
+  letterOpenHint: string;
   letterboxEmptyReceived: string;
   letterboxEmptySent: string;
   letterEditedMark: string;
@@ -243,6 +251,10 @@ const messages = {
     letterboxSent: "送った手紙",
     letterLocked: "ひみつの手紙",
     letterLockedUntil: "12月25日に開きます(あと{n}日)",
+    letterReadTitle: "{name}からの手紙",
+    letterUnread: "未開封",
+    letterTapToOpen: "タップして開けてみましょう",
+    letterOpenHint: "タップするとすぐに開きます",
     letterboxEmptyReceived: "まだ手紙は届いていません",
     letterboxEmptySent: "まだ手紙を送っていません。友だちのポストに入れてみましょう",
     letterEditedMark: "編集済み",
@@ -374,6 +386,10 @@ const messages = {
     letterboxSent: "보낸 편지",
     letterLocked: "잠긴 편지",
     letterLockedUntil: "12월 25일에 열려요 (D-{n})",
+    letterReadTitle: "{name}의 편지",
+    letterUnread: "안 읽음",
+    letterTapToOpen: "눌러서 열어 보세요",
+    letterOpenHint: "누르면 바로 열려요",
     letterboxEmptyReceived: "아직 받은 편지가 없어요",
     letterboxEmptySent: "아직 보낸 편지가 없어요. 친구 우체통에 편지를 넣어 보세요",
     letterEditedMark: "수정됨",
