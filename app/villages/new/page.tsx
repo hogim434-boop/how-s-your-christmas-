@@ -9,6 +9,7 @@ import { NoticeBanner } from "@/components/auth/NoticeBanner";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { CreateVillageForm } from "@/components/villages/CreateVillageForm";
 import { parseNotice } from "@/lib/auth/next";
+import { getCurrentUserId, getMyLoginName } from "@/lib/auth/session";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
 
 // 주소의 ?notice= 값을 읽어 안내를 보여 주는 부분.
@@ -24,6 +25,18 @@ async function NoticeContent({ searchParams }: Pick<PageProps<"/villages/new">, 
   );
 }
 
+// 만들기 양식. 닉네임 입력칸에 로그인 닉네임을 미리 채워 두려고 내 이름을 읽습니다.
+// (쿠키를 읽는 "요청마다 달라지는 값"이라 이 부분도 <Suspense> 안에 둡니다)
+async function FormContent() {
+  const userId = await getCurrentUserId();
+  const loginName = userId ? await getMyLoginName(userId) : "";
+  return (
+    <LocaleProvider>
+      <CreateVillageForm defaultNickname={loginName} />
+    </LocaleProvider>
+  );
+}
+
 export default function NewVillagePage({ searchParams }: PageProps<"/villages/new">) {
   return (
     <main
@@ -33,9 +46,9 @@ export default function NewVillagePage({ searchParams }: PageProps<"/villages/ne
       <Suspense fallback={null}>
         <NoticeContent searchParams={searchParams} />
       </Suspense>
-      <LocaleProvider>
-        <CreateVillageForm />
-      </LocaleProvider>
+      <Suspense fallback={null}>
+        <FormContent />
+      </Suspense>
     </main>
   );
 }

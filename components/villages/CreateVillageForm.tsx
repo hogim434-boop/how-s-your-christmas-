@@ -1,7 +1,7 @@
 "use client";
 
 // 마을 만들기 화면의 내용입니다. (F011 마을 만들기, F012 초대 링크)
-// 1) 모임 이름 하나를 적고, 마을 종류(친구 / 커플)를 골라 "만들기"를 누릅니다. 정원(인원 수)은 묻지 않습니다.
+// 1) 모임 이름과 "이 마을에서 쓸 내 닉네임"을 적고, 마을 종류(친구 / 커플)를 골라 "만들기"를 누릅니다. 정원(인원 수)은 묻지 않습니다.
 // 2) 만들고 나면 같은 자리에 초대 링크가 나타나고, 복사하거나 캐릭터 꾸미기로 넘어갈 수 있습니다.
 // (로드맵 Task 008) "만들기"를 누르면 데이터베이스의 create_village 함수를 부릅니다.
 //    그 함수가 한 번에 마을을 저장하고, 만든 사람을 첫 주민으로 넣고, 초대 코드를 만들어 돌려줍니다.
@@ -12,18 +12,23 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Copy, PartyPopper } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { NicknameField } from "@/components/village/NicknameField";
 import { useMessages } from "@/i18n/LocaleContext";
 import { loginUrl } from "@/lib/auth/next";
 import { createClient } from "@/lib/supabase/client";
 import { copyText, inviteUrl } from "@/lib/village/invite";
+import { initialNickname, validateNickname } from "@/lib/village/nickname";
 import { UI_COLORS } from "@/lib/village/theme";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
 import { availableVillageKinds, validateVillageName, VILLAGE_NAME_MAX } from "@/lib/villages/rules";
 import type { VillageKind } from "@/types/domain";
 
-export function CreateVillageForm() {
+/** defaultNickname: 닉네임 입력칸에 미리 채워 둘 이름 (LINE·카카오 닉네임) */
+export function CreateVillageForm({ defaultNickname = "" }: { defaultNickname?: string }) {
   const t = useMessages();
   const [name, setName] = useState("");
+  // 이 마을에서 쓸 내 닉네임 (11.27 사용자 요청: 마을을 만드는 사람은 만들 때 정합니다)
+  const [nickname, setNickname] = useState(() => initialNickname(defaultNickname));
   const [kind, setKind] = useState<VillageKind>("friends");
   // 만든 마을 (아직 만들기 전이면 null): 초대 링크와 마을 번호
   const [created, setCreated] = useState<{ link: string; villageId: string } | null>(null);
@@ -33,10 +38,11 @@ export function CreateVillageForm() {
   const [failed, setFailed] = useState(false);
 
   const handleSubmit = async () => {
-    if (check !== "ok" || submitting) return;
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
     setFailed(false);
-    const { data, error } = await createClient().rpc("create_village", { p_name: name.trim(), p_kind: kind });
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("create_village", { p_name: name.trim(), p_kind: kind });
     if (error || !data) {
       // 로그인이 풀린 채로 눌렀다면 로그인 화면으로 보냅니다 (로그인 뒤 이 화면으로 돌아옴)
       if (error?.message.includes("not_signed_in")) {
@@ -47,6 +53,10 @@ export function CreateVillageForm() {
       setSubmitting(false);
       return;
     }
+    // 방금 생긴 "내 주민 줄"에 닉네임을 저장합니다. 보안 규칙이 본인 줄만 고치게 하므로 마을 번호만으로 내 줄이 골라집니다.
+    // 실패해도 마을은 이미 만들어졌으므로 그대로 진행합니다 (로그인 닉네임이 보이고, 메뉴에서 다시 정할 수 있음)
+    const { error: nicknameError } = await supabase.from("residents").update({ nickname: nickname.trim() }).eq("village_id", data.id);
+    if (nicknameError) console.error("닉네임 저장 실패", nicknameError);
     setCreated({ link: inviteUrl(window.location.origin, data.invite_code), villageId: data.id });
   };
   // 복사 결과: 아직 안 누름 / 복사됨 / 실패
@@ -56,6 +66,8 @@ export function CreateVillageForm() {
   const kindNames: Record<VillageKind, string> = { friends: t.kindFriends, couple: t.kindCouple };
   const kindDescs: Record<VillageKind, string> = { friends: t.kindFriendsDesc, couple: t.kindCoupleDesc };
   const check = validateVillageName(name);
+  // 모임 이름과 닉네임이 모두 규칙에 맞아야 만들 수 있습니다
+  const canSubmit = check === "ok" && validateNickname(nickname) === "ok";
   const cardStyle = { backgroundColor: "#ffffff", color: UI_COLORS.navy };
 
   // ── 2) 만든 뒤: 초대 링크 보여 주기 ──
@@ -144,6 +156,8 @@ export function CreateVillageForm() {
         </div>
       </div>
 
+      <NicknameField id="creator-nickname" value={nickname} onChange={setNickname} />
+
       {/* 마을 종류: 커플 선택지가 꺼져 있으면(친구 마을 하나뿐이면) 고르기 자체를 숨깁니다 */}
       {kinds.length > 1 && (
         <div className="flex flex-col gap-2">
@@ -162,7 +176,7 @@ export function CreateVillageForm() {
 
       <button
         type="submit"
-        disabled={check !== "ok" || submitting}
+        disabled={!canSubmit || submitting}
         className={PRIMARY_BUTTON}
       >
         {submitting ? t.creatingVillage : t.createVillageButton}
