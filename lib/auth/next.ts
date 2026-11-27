@@ -29,9 +29,18 @@ export const DEMO_VILLAGE_ID = "demo";
  * 개발용 기능(연습용 마을, 주소의 ?dev 장식 단계 슬라이더)을 쓸 수 있는지.
  * 내 컴퓨터에서 `npm run dev`로 켰을 때만 true이고, 배포된 서비스(운영)에서는 false입니다.
  * (Task 010: 운영에서는 아무나 가짜 마을을 열거나 장식을 미리 보지 못하게 닫습니다)
+ *
+ * 예외: 서버 환경 변수 HYC_DEV_TOOLS=1 이 있으면 운영 빌드에서도 켜집니다. (Task 025-1)
+ *  - 성능을 잴 때는 실제 배포와 같은 "운영 빌드"로 재야 정확한데, 그때 연습용 마을이 필요해서 둔 문입니다.
+ *  - 내 컴퓨터에서만 씁니다: `HYC_DEV_TOOLS=1 npx next start -p 3111`
+ *  - ⚠️ Vercel(배포 서비스)의 환경 변수에는 절대 넣지 않습니다. 넣으면 누구나 연습용 마을을 열 수 있습니다.
+ *  - 💡 NEXT_PUBLIC_ 으로 시작하지 않는 값이라 브라우저로 나가지 않고, 서버가 요청을 받을 때마다 읽습니다.
  */
-export function devToolsEnabled(nodeEnv: string | undefined = process.env.NODE_ENV): boolean {
-  return nodeEnv === "development";
+export function devToolsEnabled(
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+  flag: string | undefined = process.env.HYC_DEV_TOOLS,
+): boolean {
+  return nodeEnv === "development" || flag === "1";
 }
 
 /** 마지막으로 들어간 마을을 기억하는 쿠키 이름 (PRD 가정 13) */
@@ -105,8 +114,9 @@ export function resolveAfterLogin(input: {
   lastVillageId?: string | null;
 }): string {
   const invite = safeInviteCode(input.inviteCode);
-  // 입주 처리 주소로 바로 보냅니다 → 로그인이 끝나면 더 누를 것 없이 그 마을 주민이 됩니다 (Task 008)
-  if (invite) return `/invite/${invite}/join`;
+  // 초대 화면으로 돌려보냅니다 → 거기서 이 마을에서 쓸 닉네임을 정하고 들어갑니다 (11.27 사용자 요청)
+  // (이미 그 마을 주민이면 초대 화면이 바로 마을로 보내 줍니다)
+  if (invite) return `/invite/${invite}`;
 
   const next = safeNextPath(input.next);
   if (next) return next;

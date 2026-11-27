@@ -104,7 +104,7 @@ describe("resolveAfterLogin", () => {
   });
 
   it("초대 링크로 왔으면 그 초대 화면이 가장 먼저", () => {
-    expect(resolveAfterLogin({ villageIds: ["v1"], next: "/village/v1", inviteCode: "abc" })).toBe("/invite/abc/join");
+    expect(resolveAfterLogin({ villageIds: ["v1"], next: "/village/v1", inviteCode: "abc" })).toBe("/invite/abc");
   });
 
   it("위험한 next·초대 코드는 무시한다", () => {
@@ -126,8 +126,14 @@ describe("devToolsEnabled", () => {
     expect(devToolsEnabled("development")).toBe(true);
   });
   it("배포된 서비스(운영)와 그 밖의 경우에는 꺼진다", () => {
-    expect(devToolsEnabled("production")).toBe(false);
-    expect(devToolsEnabled("test")).toBe(false);
-    expect(devToolsEnabled(undefined)).toBe(false);
+    expect(devToolsEnabled("production", undefined)).toBe(false);
+    expect(devToolsEnabled("test", undefined)).toBe(false);
+    expect(devToolsEnabled(undefined, undefined)).toBe(false);
+  });
+  it("운영 빌드라도 HYC_DEV_TOOLS=1 이면 켜진다 (내 컴퓨터에서 성능을 잴 때)", () => {
+    expect(devToolsEnabled("production", "1")).toBe(true);
+  });
+  it("HYC_DEV_TOOLS 값이 1이 아니면 켜지지 않는다", () => {
+    for (const flag of ["0", "true", "", " 1"]) expect(devToolsEnabled("production", flag)).toBe(false);
   });
 });
