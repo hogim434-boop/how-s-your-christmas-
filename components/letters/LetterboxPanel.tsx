@@ -3,15 +3,18 @@
 // 편지함 창 안의 내용입니다. (F005 편지 확인하기, F006 편지 수정·삭제)
 // 탭 2개: 받은 편지 / 보낸 편지
 //  - 받은 편지: 12.25 전에는 "잠긴 편지"와 남은 날만 보입니다. 누가 보냈는지, 무슨 내용인지는 보이지 않습니다.
+//    12.25부터는 줄을 누르면 편지 읽기 창이 열립니다 (로드맵 Task 015).
+//    아직 안 연 편지는 내용을 미리 보여 주지 않고 "안 읽음" 표시만, 열어 본 편지는 내용 한 줄 미리보기를 보여 줍니다.
 //  - 보낸 편지: 받는 사람과 미리보기, 수정·삭제 버튼. 삭제는 한 번 더 물어봅니다.
 //  - 12.25부터는 수정·삭제가 끝나므로 버튼을 숨깁니다.
 
 import { useState } from "react";
-import { Lock, Mail, Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, Lock, Mail, MailOpen, Pencil, Trash2 } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useMessages } from "@/i18n/LocaleContext";
 import type { ReceivedLetter } from "@/lib/letters/types";
 import type { PaperKey } from "@/lib/letters/papers";
+import { isUnread, unreadCount } from "@/lib/letters/reading";
 import { letterPreview } from "@/lib/letters/rules";
 import { PAPER_LOOK } from "./paperLook";
 import { UI_COLORS } from "@/lib/village/theme";
@@ -34,17 +37,21 @@ interface LetterboxPanelProps {
   locked: boolean;
   /** 크리스마스까지 남은 날 */
   daysLeft: number;
+  /** 받은 편지 줄을 눌렀을 때 (잠금이 풀린 편지만 누를 수 있습니다) */
+  onRead: (letterId: string) => void;
   onEdit: (recipientId: string) => void;
   onDelete: (recipientId: string) => void;
 }
 
 type Tab = "received" | "sent";
 
-export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDelete }: LetterboxPanelProps) {
+export function LetterboxPanel({ received, sent, locked, daysLeft, onRead, onEdit, onDelete }: LetterboxPanelProps) {
   const t = useMessages();
   const [tab, setTab] = useState<Tab>("received");
   // 지금 "정말 지울까요?"를 묻고 있는 편지 (없으면 null)
   const [confirming, setConfirming] = useState<string | null>(null);
+  // 아직 열어 보지 않은 편지 수 (잠긴 편지는 세지 않습니다)
+  const unread = unreadCount(received);
 
   /** 편지 한 줄의 공통 모양: 흰 카드 + 옅은 테두리 */
   const row = "rounded-2xl border border-[#e6e8f0] bg-white";
@@ -63,7 +70,8 @@ export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDel
         value={tab}
         onChange={setTab}
         options={[
-          { value: "received", label: `${t.letterboxReceived} ${received.length}` },
+          // 안 읽은 편지가 있으면 빨간 점(●)을 붙여 알려 줍니다
+          { value: "received", label: `${t.letterboxReceived} ${received.length}${unread > 0 ? " ●" : ""}` },
           { value: "sent", label: `${t.letterboxSent} ${sent.length}` },
         ]}
       />
@@ -71,39 +79,55 @@ export function LetterboxPanel({ received, sent, locked, daysLeft, onEdit, onDel
       {tab === "received" && (
         <ul className="flex flex-col gap-2">
           {received.length === 0 && empty(t.letterboxEmptyReceived)}
-          {received.map((letter) => (
-            <li
-              key={letter.id}
-              className={`${row} flex items-start gap-3 p-3.5`}
-              // 잠금이 풀린 편지는 보낸 사람이 고른 편지지 바탕으로 보여 줍니다
-              style={letter.paper ? PAPER_LOOK[letter.paper].background : undefined}
-            >
-              {letter.content === null ? (
-                // 잠긴 편지: 보낸 사람·내용 없이 자물쇠와 남은 날만
-                <>
-                  <span className={iconBox} style={{ backgroundColor: UI_COLORS.surface, color: UI_COLORS.muted }}>
-                    <Lock className="size-5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 self-center">
-                    <p className="text-sm font-semibold">{t.letterLocked}</p>
-                    <p className="text-xs" style={{ color: UI_COLORS.muted }}>
-                      {t.letterLockedUntil.replace("{n}", String(daysLeft))}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
+          {received.map((letter) =>
+            letter.content === null ? (
+              // 잠긴 편지: 보낸 사람·내용 없이 자물쇠와 남은 날만 (누를 수 없음)
+              <li key={letter.id} className={`${row} flex items-start gap-3 p-3.5`}>
+                <span className={iconBox} style={{ backgroundColor: UI_COLORS.surface, color: UI_COLORS.muted }}>
+                  <Lock className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 self-center">
+                  <p className="text-sm font-semibold">{t.letterLocked}</p>
+                  <p className="text-xs" style={{ color: UI_COLORS.muted }}>
+                    {t.letterLockedUntil.replace("{n}", String(daysLeft))}
+                  </p>
+                </div>
+              </li>
+            ) : (
+              // 잠금이 풀린 편지: 줄 전체가 버튼입니다. 누르면 편지 읽기 창이 열립니다
+              <li key={letter.id}>
+                <button
+                  type="button"
+                  onClick={() => onRead(letter.id)}
+                  className={`${row} flex w-full items-center gap-3 p-3.5 text-left transition active:scale-[0.99]`}
+                  // 보낸 사람이 고른 편지지 바탕으로 보여 줍니다
+                  style={letter.paper ? PAPER_LOOK[letter.paper].background : undefined}
+                >
                   <span className={iconBox} style={{ backgroundColor: `${UI_COLORS.accent}1a`, color: UI_COLORS.accent }}>
-                    <Mail className="size-5" aria-hidden="true" />
+                    {isUnread(letter) ? <Mail className="size-5" aria-hidden="true" /> : <MailOpen className="size-5" aria-hidden="true" />}
                   </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{t.letterFrom.replace("{name}", letter.senderName ?? "")}</p>
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed">{letter.content}</p>
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span className="min-w-0 truncate">{t.letterFrom.replace("{name}", letter.senderName ?? "")}</span>
+                      {isUnread(letter) && (
+                        <span
+                          className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                          style={{ backgroundColor: UI_COLORS.accent }}
+                        >
+                          {t.letterUnread}
+                        </span>
+                      )}
+                    </span>
+                    {/* 안 읽은 편지는 내용을 미리 보여 주지 않습니다 (열어 보는 즐거움을 남겨 둡니다) */}
+                    <span className="mt-0.5 block truncate text-sm" style={{ color: UI_COLORS.muted }}>
+                      {isUnread(letter) ? t.letterTapToOpen : letterPreview(letter.content)}
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+                </button>
+              </li>
+            ),
+          )}
         </ul>
       )}
 

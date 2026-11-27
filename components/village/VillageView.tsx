@@ -30,6 +30,7 @@ import { Toast, type ToastMessage } from "./hud/Toast";
 import Overlay from "@/components/overlay/Overlay";
 import { LetterForm } from "@/components/letters/LetterForm";
 import { LetterboxPanel, type SentLetterRow } from "@/components/letters/LetterboxPanel";
+import { LetterReader } from "@/components/letters/LetterReader";
 import { CharacterEditor } from "@/components/character/CharacterEditor";
 import { houseSlots, ringRadius, walkRadius } from "@/lib/village/layout";
 import { daysUntilChristmas } from "@/lib/village/dday";
@@ -46,7 +47,9 @@ import {
   upsertLetter,
 } from "@/lib/dummy/letters";
 import { isLetterLocked } from "@/lib/letters/rules";
-import { deleteLetter, editLetter, fetchProgress, fetchSentLetters, sendLetter } from "@/lib/letters/store";
+import { isUnread, markOpenedInList } from "@/lib/letters/reading";
+import { deleteLetter, editLetter, fetchProgress, fetchSentLetters, markLetterOpened, sendLetter } from "@/lib/letters/store";
+import { readSession, writeSession } from "@/lib/storage";
 import { putSentLetter, type SentLetter } from "@/lib/letters/types";
 import type { LetterError } from "@/lib/letters/errors";
 import { computeDecorLevel, progressPercent, requiredCount } from "@/lib/decor/progress";
@@ -80,11 +83,16 @@ interface VillageViewProps {
 /** 마을에 처음 들어온 사람에게 이용 방법 안내를 띄우기까지 기다리는 시간(밀리초). 마을을 한번 둘러볼 틈을 줍니다 */
 const INTRO_DELAY_MS = 1200;
 
+/** "12.25가 지나서 화면을 새로 불러왔음" 표시를 적어 두는 이름 (이 탭에서 한 번만 새로 부르기 위해) */
+const UNLOCK_RELOAD_KEY = "hyc.unlockReloaded";
+
 /** 지금 열려 있는 겹침 창. 편지 쓰기는 누구에게 쓰는지(residentId)도 함께 기억 */
 type OverlayState =
   | null
   | { kind: "write"; residentId: string }
   | { kind: "letterbox" }
+  // 받은 편지 읽기. firstOpen = 처음 여는 편지인지(봉투 개봉 연출을 보여 줄지). 창을 여는 순간 한 번만 정합니다
+  | { kind: "read"; letterId: string; firstOpen: boolean }
   | { kind: "customize" }
   | { kind: "nickname" }
   | { kind: "menu" }
@@ -175,16 +183,6 @@ export default function VillageView({ id, options, village: realVillage, level, 
       walkStore.set(p);
     },
     [mailboxSpots, walkStore],
-  );
-
-  // 말풍선 버튼을 눌렀을 때: 내 우체통이면 편지함, 친구 우체통이면 그 친구에게 편지 쓰기
-  const openMailbox = useCallback(
-    (residentId: string) => {
-      const resident = village.residents.find((r) => r.id === residentId);
-      if (!resident) return;
-      setOverlay(resident.isMe ? { kind: "letterbox" } : { kind: "write", residentId });
-    },
-    [village.residents],
   );
 
   // 초대 링크 복사: 이 마을의 초대 코드로 주소를 만듭니다. 실패하면 안내 메시지로 알려 줍니다
@@ -340,10 +338,62 @@ export default function VillageView({ id, options, village: realVillage, level, 
   const letterBusy = useRef(false);
   // 내가 편지를 보낸 주민 id 목록 → 우체통의 "보냄" 표시에 씁니다
   const sentTo = useMemo(() => sentLetters.map((l) => l.recipientId), [sentLetters]);
-  const received = useMemo(
-    () => (realVillage ? realVillage.receivedLetters : receivedLetters(dummyVillage, locked)),
-    [realVillage, dummyVillage, locked],
+  // 이 화면에서 방금 열어 본 편지의 "처음 연 시각" (편지 번호 → 시각). 서버가 준 목록 위에 덧씌웁니다
+  const [openedHere, setOpenedHere] = useState<Record<string, string>>({});
+  const received = useMemo(() => {
+    const base = realVillage ? realVillage.receivedLetters : receivedLetters(dummyVillage, locked);
+    return Object.entries(openedHere).reduce((list, [letterId, at]) => markOpenedInList(list, letterId, at), base);
+  }, [realVillage, dummyVillage, locked, openedHere]);
+
+  // 받은 편지 줄을 눌렀을 때: 읽기 창을 엽니다. 처음 여는 편지면 개봉 연출을 보여 주고 "열어 봤음"으로 기록합니다
+  const handleLetterRead = useCallback(
+    (letterId: string) => {
+      const letter = received.find((l) => l.id === letterId);
+      // 잠긴 편지(내용 없음)는 열 수 없습니다
+      if (!letter || letter.content === null) return;
+      // ⚠️ 처음 여는지는 "지금" 한 번만 정합니다. 바로 아래에서 읽음으로 바꾸기 때문에,
+      //    나중에 다시 계산하면 false가 되어 연출이 중간에 끊깁니다
+      const firstOpen = isUnread(letter);
+      if (firstOpen) {
+        setOpenedHere((prev) => ({ ...prev, [letterId]: new Date().toISOString() }));
+        // 진짜 마을이면 데이터베이스에도 적습니다. 결과를 기다리지 않고, 실패해도 편지는 그대로 읽습니다
+        if (realVillage) void markLetterOpened(letterId);
+      }
+      setOverlay({ kind: "read", letterId, firstOpen });
+    },
+    [received, realVillage],
   );
+  // 지금 읽기 창에 떠 있는 편지 (없으면 undefined)
+  const readingLetter = overlay?.kind === "read" ? received.find((l) => l.id === overlay.letterId) : undefined;
+
+  // 편지함 열기. 12.25 0시를 넘겼는데 이 화면이 아직 "잠김"으로 알고 있으면(자정 전에 열어 둔 화면),
+  // 화면을 한 번 새로 불러와 서버에서 편지를 받아 옵니다.
+  // 💡 잠금을 푸는 것은 서버(데이터베이스)입니다. 휴대폰 시계를 앞당겨도 편지는 내려오지 않습니다.
+  //    그런 경우 새로고침이 되풀이되지 않게, 이 탭에서 한 번만 합니다.
+  const openLetterbox = useCallback(() => {
+    if (realVillage && locked && !isLetterLocked(new Date()) && readSession(UNLOCK_RELOAD_KEY) === null) {
+      writeSession(UNLOCK_RELOAD_KEY, "1");
+      // 표시가 실제로 남았을 때만 새로 부릅니다 (저장이 막힌 브라우저에서 새로고침이 끝없이 되풀이되지 않게)
+      if (readSession(UNLOCK_RELOAD_KEY) === "1") {
+        window.location.reload();
+        return;
+      }
+    }
+    setOverlay({ kind: "letterbox" });
+  }, [realVillage, locked]);
+
+  // 말풍선 버튼을 눌렀을 때: 내 우체통이면 편지함, 친구 우체통이면 그 친구에게 편지 쓰기
+  // (openLetterbox를 쓰기 때문에 그 아래에 둡니다)
+  const openMailbox = useCallback(
+    (residentId: string) => {
+      const resident = village.residents.find((r) => r.id === residentId);
+      if (!resident) return;
+      if (resident.isMe) openLetterbox();
+      else setOverlay({ kind: "write", residentId });
+    },
+    [village.residents, openLetterbox],
+  );
+
   // 편지함의 보낸 편지 줄: 받는 사람 이름을 붙이고, 이 마을에 없는 사람의 편지는 뺍니다
   const sentRows: SentLetterRow[] = sentLetters.flatMap((l) => {
     const recipient = village.residents.find((r) => r.id === l.recipientId);
@@ -602,9 +652,27 @@ export default function VillageView({ id, options, village: realVillage, level, 
           locked={locked}
           daysLeft={dday.days}
           // 수정: 편지함을 닫고 그 친구에게 쓰는 창을 "고치기" 모드로 엽니다
+          onRead={handleLetterRead}
           onEdit={(recipientId) => setOverlay({ kind: "write", residentId: recipientId })}
           onDelete={handleLetterDelete}
         />
+      </Overlay>
+      {/* 받은 편지 읽기 창. 닫으면 편지함으로 돌아갑니다 (다음 편지를 이어서 읽기 쉽게) */}
+      <Overlay
+        open={overlay?.kind === "read" && readingLetter !== undefined}
+        onClose={() => setOverlay({ kind: "letterbox" })}
+        title={t.letterReadTitle.replace("{name}", readingLetter?.senderName ?? "")}
+      >
+        {overlay?.kind === "read" && readingLetter && readingLetter.content !== null && (
+          <LetterReader
+            // key: 다른 편지를 열면 연출 상태를 처음부터 다시 시작합니다
+            key={readingLetter.id}
+            senderName={readingLetter.senderName ?? ""}
+            content={readingLetter.content}
+            paper={readingLetter.paper ?? DEFAULT_PAPER}
+            firstOpen={overlay.firstOpen}
+          />
+        )}
       </Overlay>
       <Overlay open={overlay?.kind === "customize"} onClose={closeOverlay} title={t.customize}>
         <CharacterEditor
@@ -633,7 +701,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
           comingSoon: t.appComingSoon,
         }}
         // 메뉴의 기능 타일: 메뉴를 닫고(또는 다른 창으로 바꾸고) 그 기능을 실행합니다
-        onOpenLetterbox={() => setOverlay({ kind: "letterbox" })}
+        onOpenLetterbox={openLetterbox}
         onOpenCustomize={() => setOverlay({ kind: "customize" })}
         onCopyInvite={() => {
           closeOverlay();
