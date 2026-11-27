@@ -15,7 +15,6 @@ import { MailboxPromptLayer } from "./MailboxPrompt";
 import { approachPoint, type Spot } from "@/lib/village/proximity";
 import { TopBar } from "./hud/TopBar";
 import { BottomBar } from "./hud/BottomBar";
-import { InviteCard } from "./hud/InviteCard";
 import { DevLevelBar } from "./hud/DevLevelBar";
 import { MenuSheet } from "./hud/MenuSheet";
 import { HowToPlay } from "./HowToPlay";
@@ -51,7 +50,7 @@ import type { CharacterParts } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
 import { getMessages, type Locale } from "@/i18n/messages";
 import { LocaleContext } from "@/i18n/LocaleContext";
-import { loadIntroSeen, loadLocale, loadSky, saveIntroSeen, saveLocale, saveSky } from "@/lib/village/preferences";
+import { loadIntroSeen, loadLocale, loadMenuHintSeen, loadSky, saveIntroSeen, saveLocale, saveMenuHintSeen, saveSky } from "@/lib/village/preferences";
 import { SKY_THEMES, UI_COLORS, type SkyMode } from "@/lib/village/theme";
 
 interface VillageViewProps {
@@ -128,12 +127,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
 
   // 겹침 창과 안내 메시지(토스트)
   // ?customize=1로 들어오면(입주 직후 흐름) 꾸미기 창을 바로 엽니다
-  // 진짜 마을이면 그보다 먼저 닉네임 창을 엽니다 (닉네임 → 꾸미기 → 이용 방법 순서, 11.27 사용자 요청)
-  const [overlay, setOverlay] = useState<OverlayState>(
-    options.customize ? { kind: village.isDemo ? "customize" : "nickname" } : null,
-  );
-  // 닉네임 창을 닫은 뒤 꾸미기 창으로 이어 갈지 (처음 들어온 흐름일 때만 true)
-  const [customizeNext, setCustomizeNext] = useState(Boolean(options.customize) && !village.isDemo);
+  // (닉네임은 마을을 만들 때·초대받아 들어올 때 이미 정했습니다. 여기서는 메뉴에서 바꿀 때만 창이 뜹니다)
+  const [overlay, setOverlay] = useState<OverlayState>(options.customize ? { kind: "customize" } : null);
   const closeOverlay = useCallback(() => setOverlay(null), []);
   // 안내(notice)를 받고 들어왔으면 처음부터 그 문구를 띄워 둡니다
   const [toast, setToast] = useState<ToastMessage | null>(
@@ -217,6 +212,13 @@ export default function VillageView({ id, options, village: realVillage, level, 
     const timer = setTimeout(() => setOverlay((prev) => prev ?? { kind: "howto" }), INTRO_DELAY_MS);
     return () => clearTimeout(timer);
   }, [active, noOverlay]);
+  // 메뉴 버튼을 가리키는 한 번짜리 말풍선: 메뉴를 한 번 열면 다시 뜨지 않습니다 (이 브라우저에 기억)
+  const [menuHint, setMenuHint] = useState(() => !loadMenuHintSeen());
+  const openMenu = useCallback(() => {
+    saveMenuHintSeen();
+    setMenuHint(false);
+    setOverlay({ kind: "menu" });
+  }, []);
   const closeHowTo = useCallback(() => {
     saveIntroSeen();
     setOverlay(null);
@@ -319,11 +321,6 @@ export default function VillageView({ id, options, village: realVillage, level, 
     showToast(ok ? t.customizeSaved : t.saveFailed);
   };
 
-  // 닉네임 창이 끝난 뒤: 처음 들어온 흐름이면 꾸미기 창으로, 아니면 그냥 닫습니다
-  const leaveNickname = () => {
-    setOverlay(customizeNext ? { kind: "customize" } : null);
-    setCustomizeNext(false);
-  };
   const handleNicknameConfirm = async (nickname: string) => {
     // 이름이 그대로면 저장하지 않고 넘어갑니다
     if (me && !village.isDemo && nickname !== me.name) {
@@ -337,7 +334,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
       // 서버에서 마을을 다시 읽어 화면의 내 이름을 새 닉네임으로 바꿉니다
       router.refresh();
     }
-    leaveNickname();
+    closeOverlay();
   };
 
   const writeTarget = overlay?.kind === "write" ? village.residents.find((r) => r.id === overlay.residentId) : undefined;
@@ -499,11 +496,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
             progressAria={t.progressAria}
             night={SKY_THEMES[sky].lightText}
           />
-          {/* 주민이 나 혼자면 초대 카드, ?dev면 단계 슬라이더 */}
+          {/* ?dev면 단계 슬라이더 (초대 카드는 없앴습니다 → 초대는 메뉴에서, 아래 메뉴 버튼 위의 말풍선이 알려 줍니다) */}
           <div className="flex flex-col gap-2 px-4">
-            {village.residents.length === 1 && (
-              <InviteCard title={t.inviteCardTitle} copyLabel={t.inviteCopyButton} onCopy={copyInvite} />
-            )}
             {options.dev && (
               <DevLevelBar level={decorLevel} max={MAX_DECOR_LEVEL} label={t.devLevel} onChange={setDevLevel} />
             )}
@@ -515,7 +509,9 @@ export default function VillageView({ id, options, village: realVillage, level, 
           showHint={!overlayOpen && !isTreeView}
           labels={{ hint: t.tapHint, treeView: t.treeView, backToVillage: t.backToVillage, menu: t.menu }}
           onToggleTreeView={() => setTreeViewState((prev) => !prev)}
-          onOpenMenu={() => setOverlay({ kind: "menu" })}
+          // 말풍선은 다른 창이 없고 3D가 다 뜬 뒤에만 보입니다 (이용 방법 안내 창과 겹치지 않게)
+          menuHint={menuHint && !active && !overlayOpen && !isTreeView ? t.menuHint : undefined}
+          onOpenMenu={openMenu}
         />
       </div>
 
@@ -559,7 +555,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
           onConfirm={handlePartsConfirm}
         />
       </Overlay>
-      <Overlay open={overlay?.kind === "nickname"} onClose={leaveNickname} title={t.nicknameTitle}>
+      <Overlay open={overlay?.kind === "nickname"} onClose={closeOverlay} title={t.nicknameTitle}>
         {/* key: 이름이 바뀌면 입력칸을 새 이름으로 다시 시작합니다 */}
         {me && <NicknameForm key={me.name} currentName={me.name} onConfirm={handleNicknameConfirm} />}
       </Overlay>
