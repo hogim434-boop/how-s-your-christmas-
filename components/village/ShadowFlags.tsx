@@ -8,12 +8,12 @@
 //
 // ⚡ 11.25 성능 개선: 그림자를 "매 장면" 다시 그리지 않고, 물체가 늘거나 줄었을 때만 다시 그립니다.
 //   집·트리·장식은 움직이지 않으니 한 번 그린 그림자를 계속 써도 똑같습니다.
-//   움직이는 캐릭터는 그림자를 만들지 않고, 발밑의 둥근 그림자(Player.tsx)로 대신합니다.
+//   움직이는 캐릭터(내 캐릭터와 함께 걷는 다른 주민)는 그림자를 만들지 않고, 발밑의 둥근 그림자로 대신합니다.
+//   → 캐릭터 묶음에 붙여 둔 표시(userData.noShadowCast)를 보고 건너뜁니다. (Task 025-2: 이름 "player" 대신 표시로 판단)
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { PLAYER_OBJECT_NAME } from "./FollowCamera";
 
 export function ShadowFlags() {
   const gl = useThree((s) => s.gl);
@@ -33,7 +33,6 @@ export function ShadowFlags() {
     if (since >= 0 && since < 1) return;
     last.current = clock.elapsedTime;
 
-    const player = scene.getObjectByName(PLAYER_OBJECT_NAME);
     let count = 0;
     scene.traverse((child) => {
       const mesh = child as THREE.Mesh;
@@ -41,7 +40,7 @@ export function ShadowFlags() {
       const material = mesh.material as THREE.Material;
       // 셰이더 재질(하늘·안개)과 반투명 물체는 제외
       if (material instanceof THREE.ShaderMaterial) return;
-      mesh.castShadow = !material.transparent && !isInside(mesh, player);
+      mesh.castShadow = !material.transparent && !insideNoShadowCast(mesh);
       mesh.receiveShadow = true;
       if (mesh.castShadow) count++;
     });
@@ -53,9 +52,9 @@ export function ShadowFlags() {
   return null;
 }
 
-/** obj가 parent 안(자식·손자…)에 들어 있는지 */
-function isInside(obj: THREE.Object3D, parent: THREE.Object3D | undefined): boolean {
-  for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (o === parent) return true;
+/** obj나 그 조상(부모·조부모…) 중에 "그림자를 만들지 않음" 표시가 있는지 */
+function insideNoShadowCast(obj: THREE.Object3D): boolean {
+  for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (o.userData.noShadowCast) return true;
   return false;
 }
 
