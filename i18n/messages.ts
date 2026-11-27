@@ -50,7 +50,8 @@ export type Messages = {
   inviteCopied: string;
   inviteCopyFailed: string;
   /** 주민 1명일 때 보이는 초대 카드 */
-  inviteCardTitle: string;
+  /** 메뉴 버튼을 가리키는 한 번짜리 안내 (초대는 메뉴 안에 있다는 것을 알려 줌) */
+  menuHint: string;
   inviteCopyButton: string;
   /** 메뉴 창 */
   logout: string;
@@ -142,6 +143,8 @@ export type Messages = {
   /** 마을에서 쓰는 닉네임 (메뉴 줄 이름, 입력칸 이름) */
   nickname: string;
   nicknameTitle: string;
+  /** 마을 만들기·초대 화면의 닉네임 입력칸 이름표 */
+  nicknameLabel: string;
   nicknameDesc: string;
   nicknamePlaceholder: string;
   nicknameTooLong: string;
@@ -208,7 +211,7 @@ const messages = {
     writeLetterTitle: "{name}さんへ手紙を書く",
     inviteCopied: "招待リンクをコピーしました",
     inviteCopyFailed: "コピーできませんでした。リンクを長押ししてコピーしてね",
-    inviteCardTitle: "友だちを招待しよう",
+    menuHint: "友だちの招待はメニューからできるよ",
     inviteCopyButton: "リンクをコピー",
     logout: "ログアウト",
     skyMode: "空",
@@ -282,6 +285,7 @@ const messages = {
     saveFailed: "保存できませんでした。もう一度お試しください",
     nickname: "ニックネーム",
     nicknameTitle: "この村で使う名前",
+    nicknameLabel: "この村で使うニックネーム",
     nicknameDesc: "友だちに見える名前だよ。メニューからいつでも変えられるよ",
     nicknamePlaceholder: "ニックネームを入力",
     nicknameTooLong: "{max}文字以内で入力してね",
@@ -338,7 +342,7 @@ const messages = {
     writeLetterTitle: "{name}님께 편지 쓰기",
     inviteCopied: "초대 링크를 복사했어요",
     inviteCopyFailed: "복사하지 못했어요. 링크를 길게 눌러 복사해 주세요",
-    inviteCardTitle: "친구를 초대해요",
+    menuHint: "친구 초대는 메뉴에서 할 수 있어요",
     inviteCopyButton: "링크 복사",
     logout: "로그아웃",
     skyMode: "하늘",
@@ -412,6 +416,7 @@ const messages = {
     saveFailed: "저장하지 못했어요. 다시 시도해 주세요",
     nickname: "닉네임",
     nicknameTitle: "이 마을에서 쓸 닉네임",
+    nicknameLabel: "이 마을에서 쓸 닉네임",
     nicknameDesc: "친구들에게 보이는 이름이에요. 메뉴에서 언제든 바꿀 수 있어요",
     nicknamePlaceholder: "닉네임을 입력해 주세요",
     nicknameTooLong: "{max}자 이내로 입력해 주세요",
