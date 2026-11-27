@@ -203,7 +203,7 @@ function VillageScene({
           boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
           heightAt={terrain.heightAt}
         />
-        <TapMarker store={walkStore} />
+        <TapMarker store={walkStore} heightAt={terrain.heightAt} />
       </Suspense>
       </NightContext.Provider>
     </Canvas>
