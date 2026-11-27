@@ -8,14 +8,21 @@ import { useProgress } from "@react-three/drei";
 import { useRouter } from "next/navigation";
 import VillageScene from "./VillageScene";
 import { createWalkStore } from "@/lib/village/walkStore";
+import { createRemoteStore } from "@/lib/village/remoteStore";
+import { createOnlineStore } from "@/lib/village/onlineStore";
+import { buildObstacles } from "@/lib/village/collision";
+import { spawnPoint } from "@/lib/village/liveProtocol";
+import { useLiveWalk } from "@/lib/village/useLiveWalk";
+import { ghostNames, startGhosts } from "@/lib/dummy/ghosts";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import type { Notice } from "@/lib/auth/next";
-import { NameTagLayer, type NameTagData } from "./NameTag";
+import { NameTagLayer, RemoteNameTagLayer, type NameTagData } from "./NameTag";
 import { MailboxPromptLayer } from "./MailboxPrompt";
 import { approachPoint, type Spot } from "@/lib/village/proximity";
 import { TopBar } from "./hud/TopBar";
 import { BottomBar } from "./hud/BottomBar";
 import { DevLevelBar } from "./hud/DevLevelBar";
+import { FpsMeter } from "./hud/FpsMeter";
 import { MenuSheet } from "./hud/MenuSheet";
 import { HowToPlay } from "./HowToPlay";
 import NicknameForm from "./NicknameForm";
@@ -24,7 +31,7 @@ import Overlay from "@/components/overlay/Overlay";
 import { LetterForm } from "@/components/letters/LetterForm";
 import { LetterboxPanel, type SentLetterRow } from "@/components/letters/LetterboxPanel";
 import { CharacterEditor } from "@/components/character/CharacterEditor";
-import { houseSlots, ringRadius } from "@/lib/village/layout";
+import { houseSlots, ringRadius, walkRadius } from "@/lib/village/layout";
 import { daysUntilChristmas } from "@/lib/village/dday";
 import { copyText, inviteUrl } from "@/lib/village/invite";
 import { getDummyVillage, type DummyOptions } from "@/lib/dummy/village";
@@ -66,6 +73,8 @@ interface VillageViewProps {
   treeView?: boolean;
   /** 들어오자마자 띄울 안내 (주민이 아닌 마을에서 튕겨 왔을 때) */
   notice?: Notice;
+  /** 함께 걷기를 켤지 (서버 환경 변수 LIVE_WALK=1). 연습용 마을에서는 켜지지 않습니다 */
+  liveWalk?: boolean;
 }
 
 /** 마을에 처음 들어온 사람에게 이용 방법 안내를 띄우기까지 기다리는 시간(밀리초). 마을을 한번 둘러볼 틈을 줍니다 */
@@ -81,7 +90,7 @@ type OverlayState =
   | { kind: "menu" }
   | { kind: "howto" };
 
-export default function VillageView({ id, options, village: realVillage, level, treeView, notice }: VillageViewProps) {
+export default function VillageView({ id, options, village: realVillage, level, treeView, notice, liveWalk }: VillageViewProps) {
   // 화면 언어와 하늘(아침·밤): 메뉴에서 바꾸고, 이 브라우저에 기억해 둡니다 (11.25 사용자 요청)
   // (이 화면은 브라우저에서만 그려져서, 처음 값을 바로 저장 공간에서 읽어도 서버와 어긋나지 않습니다)
   const [locale, setLocale] = useState<Locale>(loadLocale);
@@ -199,6 +208,33 @@ export default function VillageView({ id, options, village: realVillage, level, 
   );
   const mailboxLabel = useCallback((name: string) => t.mailboxLabel.replace("{name}", name), [t.mailboxLabel]);
 
+  // ── 함께 걷기 (Task 025): 같은 마을에 접속해 있는 다른 주민들 ──
+  // 다른 주민의 자리·목표 보관함. 3D가 직접 읽으므로, 누가 걸어도 이 화면 전체는 다시 그려지지 않습니다
+  const [remoteStore] = useState(createRemoteStore);
+  // 접속 중인 주민 목록 (캐릭터를 그리지 않는 9번째 접속자도 포함). 집 이름표의 초록 점에 씁니다
+  const [onlineStore] = useState(createOnlineStore);
+  // 내 캐릭터가 처음 서 있을 자리: 진짜 마을에서는 사람마다 조금씩 다른 자리 (모두 한 점에 겹쳐 서지 않게)
+  const myId = realVillage?.residents.find((r) => r.isMe)?.id;
+  const playerStart = useMemo(() => (myId ? spawnPoint(myId) : undefined), [myId]);
+  // 개발용 가짜 주민 (?ghosts=5&ghostwalk=1). 실시간 통신 없이 다른 주민 그리기를 확인·측정합니다
+  const residentTotal = village.residents.length;
+  useEffect(() => {
+    if (options.ghosts <= 0) return;
+    return startGhosts({
+      store: remoteStore,
+      count: options.ghosts,
+      walk: options.ghostwalk,
+      obstacles: buildObstacles(slots),
+      boundsRadius: walkRadius(residentTotal),
+    });
+  }, [options.ghosts, options.ghostwalk, remoteStore, slots, residentTotal]);
+  // 다른 주민 캐릭터의 머리 위 이름표에 쓸 이름 (주민 id → 이름). 가짜 주민의 이름도 함께 넣습니다
+  const remoteNames = useMemo(() => {
+    const names: Record<string, string> = options.ghosts > 0 ? ghostNames(options.ghosts) : {};
+    for (const r of village.residents) if (!r.isMe) names[r.id] = r.name;
+    return names;
+  }, [village.residents, options.ghosts]);
+
   // 3D 모델 파일을 받는 중인지 (drei가 다운로드 진행 상황을 알려 줍니다)
   const { active } = useProgress();
 
@@ -263,6 +299,20 @@ export default function VillageView({ id, options, village: realVillage, level, 
     // 새 주민이 들어와 있으면: 서버에서 마을 정보를 다시 받아 새 집을 그립니다 (화면 전체 새로고침 없이)
     if (next.residentCount > shownResidentCount) router.refresh();
   }, [village.id, shownResidentCount, router]);
+  // 함께 걷기의 실시간 연결: 진짜 마을이고 기능이 켜져 있을 때만 엽니다 (lib/village/useLiveWalk.ts)
+  // 화면이 모르는 주민(방금 입주한 사람)의 소식이 오면 진행 숫자를 다시 읽어 새 집을 그립니다
+  const residentIds = useMemo(() => village.residents.map((r) => r.id), [village.residents]);
+  useLiveWalk({
+    enabled: Boolean(liveWalk && realVillage && myId),
+    villageId: village.id,
+    myId,
+    residentIds,
+    boundsRadius: walkRadius(residentTotal),
+    walkStore,
+    remoteStore,
+    onlineStore,
+    onUnknownResident: refreshProgress,
+  });
   // 다른 앱을 보다가 돌아왔을 때도 진행 숫자를 다시 읽습니다 (그 사이 친구가 쓴 편지·새 주민을 반영)
   const isRealVillage = realVillage !== undefined;
   useEffect(() => {
@@ -456,6 +506,9 @@ export default function VillageView({ id, options, village: realVillage, level, 
           onNearMailboxChange={setNearMailbox}
           level={decorLevel}
           walkStore={walkStore}
+          remoteStore={remoteStore}
+          remoteClassic={options.classic}
+          playerStart={playerStart}
           // 편지 쓰기 큰 창(화면의 93%)이 열려 있는 동안에는 뒤의 3D를 멈춥니다
           paused={overlay?.kind === "write" && locked}
           treeView={isTreeView}
@@ -465,7 +518,9 @@ export default function VillageView({ id, options, village: realVillage, level, 
       </div>
 
       {/* 이름표 글자 상자들 (3D 위에 겹침) */}
-      <NameTagLayer tags={nameTags} />
+      <NameTagLayer tags={nameTags} onlineStore={onlineStore} />
+      {/* 함께 걷는 다른 주민의 머리 위 이름표 */}
+      <RemoteNameTagLayer store={remoteStore} names={remoteNames} />
 
       {/* 우체통 가까이 가면 뜨는 "편지 쓰기" 말풍선 버튼 */}
       <MailboxPromptLayer
@@ -501,6 +556,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
             {options.dev && (
               <DevLevelBar level={decorLevel} max={MAX_DECOR_LEVEL} label={t.devLevel} onChange={setDevLevel} />
             )}
+            {/* 개발용: ?fps=1 이면 초당 장면 수 표시 */}
+            {options.fps && <FpsMeter note={options.ghosts > 0 ? `ghosts ${options.ghosts}` : undefined} />}
           </div>
         </div>
 

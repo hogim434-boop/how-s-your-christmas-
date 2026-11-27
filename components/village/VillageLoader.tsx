@@ -22,8 +22,10 @@ interface VillageLoaderProps {
   village?: VillageData;
   /** 들어오자마자 띄울 안내 (주민이 아닌 마을에서 튕겨 왔을 때) */
   notice?: Notice;
+  /** 함께 걷기(같은 마을에 접속한 주민이 서로 보이는 기능)를 켤지. 서버 환경 변수 LIVE_WALK=1 일 때만 true */
+  liveWalk?: boolean;
 }
 
-export default function VillageLoader({ id, options, village, notice }: VillageLoaderProps) {
-  return <VillageView id={id} options={options} village={village} notice={notice} />;
+export default function VillageLoader({ id, options, village, notice, liveWalk }: VillageLoaderProps) {
+  return <VillageView id={id} options={options} village={village} notice={notice} liveWalk={liveWalk} />;
 }

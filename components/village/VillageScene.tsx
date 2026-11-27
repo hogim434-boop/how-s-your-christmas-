@@ -12,6 +12,7 @@ import { Lamps } from "./Lamps";
 import { Forest } from "./Forest";
 import { Fence } from "./Fence";
 import { Player } from "./Player";
+import { RemotePlayers } from "./RemotePlayers";
 import { TapMarker } from "./TapMarker";
 import { Decorations } from "./Decorations";
 import { CAMERA_FOV, FollowCamera } from "./FollowCamera";
@@ -21,6 +22,8 @@ import type { Spot } from "@/lib/village/proximity";
 import { FENCE_INNER_GAP, FENCE_MARGIN, type HouseSlot } from "@/lib/village/layout";
 import { createTerrain } from "@/lib/village/terrain";
 import type { WalkStore } from "@/lib/village/walkStore";
+import type { RemoteStore } from "@/lib/village/remoteStore";
+import type { Point } from "@/lib/village/collision";
 import { SKY_THEMES, VILLAGE_COLORS, type SkyMode } from "@/lib/village/theme";
 import { ShadowFlags } from "./ShadowFlags";
 import { NightContext } from "./nightContext";
@@ -47,6 +50,12 @@ interface VillageSceneProps {
   level: number;
   /** 캐릭터가 걸어갈 목표가 담긴 보관함 (lib/village/walkStore.ts) */
   walkStore: WalkStore;
+  /** 같은 마을에 접속해 있는 다른 주민들의 자리·목표 보관함 (lib/village/remoteStore.ts). 비어 있으면 아무도 그리지 않습니다 */
+  remoteStore: RemoteStore;
+  /** 개발용: true면 다른 주민을 예전 방식(한 명씩 따로)으로 그립니다 (연습용 마을의 &classic=1) */
+  remoteClassic?: boolean;
+  /** 내 캐릭터가 처음 서 있을 자리. 없으면 광장 앞 기본 자리 */
+  playerStart?: Point;
   /**
    * true면 3D를 계속 그리지 않고 멈춰 둡니다. (11.26 성능)
    * 편지 쓰기 창이 화면의 93%를 덮는 동안에는 뒤의 마을을 그려 봐야 보이지 않아서,
@@ -75,6 +84,9 @@ function VillageScene({
   mailboxLabel,
   level,
   walkStore,
+  remoteStore,
+  remoteClassic,
+  playerStart,
   paused,
   treeView,
   sky,
@@ -178,6 +190,15 @@ function VillageScene({
         {/* 걸을 수 있는 범위: 울타리 바로 안쪽까지 */}
         <Player
           store={walkStore}
+          slots={slots}
+          boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
+          heightAt={terrain.heightAt}
+          start={playerStart}
+        />
+        {/* 함께 걷기: 같은 마을에 접속해 있는 다른 주민들 (보관함이 비어 있으면 아무것도 그리지 않음) */}
+        <RemotePlayers
+          store={remoteStore}
+          classic={remoteClassic}
           slots={slots}
           boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
           heightAt={terrain.heightAt}

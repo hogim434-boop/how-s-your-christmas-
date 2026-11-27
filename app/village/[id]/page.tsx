@@ -14,7 +14,7 @@ import VillageLoader from "@/components/village/VillageLoader";
 import { DEMO_VILLAGE_ID, devToolsEnabled, parseNotice } from "@/lib/auth/next";
 import { redirect } from "next/navigation";
 import { requireResident } from "@/lib/auth/session";
-import { parseDummyOptions } from "@/lib/dummy/village";
+import { parseDummyOptions, withoutDevOptions } from "@/lib/dummy/village";
 import { loadVillage } from "@/lib/village/load";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
 
@@ -36,10 +36,14 @@ async function VillageContent({ params, searchParams }: PageProps<"/village/[id]
   const village = await loadVillage(id, userId);
   // 주민 확인과 읽기 사이에 마을이 사라진 드문 경우: 처음 화면이 알맞은 곳으로 다시 보내 줍니다
   if (!village) redirect("/");
-  // 진짜 마을에서는 개발용 옵션(?dev = 장식 단계 슬라이더)을 운영에서 무시합니다.
+  // 진짜 마을에서는 개발용 옵션(?dev = 장식 단계 슬라이더, ?ghosts = 가짜 주민, ?fps = 장면 수 표시)을 운영에서 무시합니다.
   // 켜 두면 누구나 주소에 ?dev를 붙여 아직 못 채운 장식을 미리 볼 수 있기 때문입니다
-  const realOptions = devToolsEnabled() ? options : { ...options, dev: false };
-  return <VillageLoader id={id} options={realOptions} village={village} notice={notice} />;
+  const realOptions = devToolsEnabled() ? options : withoutDevOptions(options);
+  // 함께 걷기(Task 025): 서버 환경 변수 LIVE_WALK=1 일 때만 켭니다. 없으면 꺼져 있어 실시간 연결을 열지 않습니다.
+  // 💡 NEXT_PUBLIC_ 으로 시작하지 않는 값이라 브라우저로 나가지 않고, 서버가 요청을 받을 때마다 읽습니다.
+  //    그래서 화면에는 "켜짐/꺼짐"(true/false)만 내려보냅니다. 문제가 생기면 이 값을 지우고 다시 배포하면 꺼집니다.
+  const liveWalk = process.env.LIVE_WALK === "1";
+  return <VillageLoader id={id} options={realOptions} village={village} notice={notice} liveWalk={liveWalk} />;
 }
 
 export default function VillagePage(props: PageProps<"/village/[id]">) {
