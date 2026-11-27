@@ -1,7 +1,8 @@
 // 모든 화면을 감싸는 바깥 틀입니다. (html·body 태그, 페이지 제목, 글꼴)
 
 import type { Metadata, Viewport } from "next";
-import { Geist, Jua, M_PLUS_Rounded_1c } from "next/font/google";
+import { Geist, Zen_Maru_Gothic } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { DEFAULT_LOCALE, getMessages } from "@/i18n/messages";
 
@@ -11,20 +12,34 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-// 한국어용 둥근 글꼴 (Jua). 한글 조각은 글자가 쓰일 때만 내려받습니다.
-const jua = Jua({
-  variable: "--font-ko",
-  weight: "400",
+// 글꼴은 "둥근 고딕" 한 쌍입니다 (11.27 사용자 선택: 후보 C. 그 전에는 M PLUS Rounded 1c + Jua)
+//  - 일본어: Zen Maru Gothic  /  한국어: 나눔스퀘어라운드
+// 획 끝까지 둥글어서 포근한 인상이고, 둘 다 굵기가 여러 개라 버튼·제목의 굵은 글자가 진짜 굵은 글꼴로 나옵니다.
+// (전에 쓰던 Jua는 굵기가 하나뿐이라 굵은 글자를 브라우저가 억지로 두껍게 만들었습니다)
+
+// 일본어용 (Google Fonts). 일본어 글자 조각은 그 글자가 쓰일 때만 내려받습니다.
+// 굵기: 400(보통)·500(중간, font-medium)·700(굵게, font-semibold와 font-bold가 이것을 씁니다)
+const zenMaru = Zen_Maru_Gothic({
+  variable: "--font-ja",
+  weight: ["400", "500", "700"],
   display: "swap",
   preload: false,
 });
 
-// 일본어용 둥근 글꼴 (M PLUS Rounded 1c). 일본어 글자도 Jua처럼 둥글둥글하게 맞춥니다.
-const mPlusRounded = M_PLUS_Rounded_1c({
-  variable: "--font-ja",
-  weight: ["400", "700"],
+// 한국어용. Google Fonts에 없어서 글꼴 파일을 app/fonts 폴더에 직접 넣었습니다 (출처·사용 조건은 app/fonts/README.md).
+// 💡 next/font/local: 우리 폴더의 글꼴 파일을 사이트에서 직접 내려 주는 도구입니다.
+const nanumSquareRound = localFont({
+  variable: "--font-ko",
+  src: [
+    { path: "./fonts/NanumSquareRoundR.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/NanumSquareRoundB.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
+  // 미리 받지 않습니다. 파일이 굵기마다 약 0.25MB라, 한글이 화면에 실제로 나올 때만 받게 합니다
   preload: false,
+  // unicode-range: "이 글꼴은 한글에만 쓴다"는 표시. 일본어 화면에서는 한글 이름이 나오기 전까지 이 파일을 받지 않습니다.
+  // (영어·숫자·문장 부호는 두 언어 모두 일본어 글꼴의 것을 써서, 언어를 바꿔도 숫자 모양이 같습니다)
+  declarations: [{ prop: "unicode-range", value: "U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF" }],
 });
 
 const t = getMessages(DEFAULT_LOCALE);
@@ -59,7 +74,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // lang: 화면 언어. 기본 언어(지금은 일본어)를 따릅니다.
-    <html lang={DEFAULT_LOCALE} className={`${geistSans.variable} ${jua.variable} ${mPlusRounded.variable} h-full antialiased`}>
+    <html lang={DEFAULT_LOCALE} className={`${geistSans.variable} ${zenMaru.variable} ${nanumSquareRound.variable} h-full antialiased`}>
       <body className="min-h-full">{children}</body>
     </html>
   );
