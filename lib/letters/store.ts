@@ -57,6 +57,22 @@ export async function deleteLetter(letterId: string): Promise<{ ok: true } | Fai
   return error ? { ok: false, reason: parseLetterError(error) } : { ok: true };
 }
 
+/**
+ * 받은 편지를 "열어 봤음"으로 기록합니다 (데이터베이스 함수 mark_letter_opened). 기록됐으면 true
+ * - 데이터베이스가 스스로 확인합니다: 받는 사람 본인인지, 잠금이 풀렸는지. 그리고 처음 한 번만 시각을 적습니다
+ * - 실패해도 오류를 던지지 않습니다. 기록이 안 됐을 뿐 편지는 읽을 수 있어야 하기 때문입니다
+ *   (기록이 안 되면 다음에 열 때 "처음 여는 편지"로 다시 보일 뿐입니다)
+ */
+export async function markLetterOpened(letterId: string): Promise<boolean> {
+  try {
+    const { error } = await createClient().rpc("mark_letter_opened", { p_letter: letterId });
+    return !error;
+  } catch {
+    // 인터넷이 끊긴 경우 등
+    return false;
+  }
+}
+
 /** 내가 이 마을에서 보낸 편지 목록을 다시 읽습니다 (다른 기기에서 보낸 편지가 있을 때 맞추기 위해). 실패하면 null */
 export async function fetchSentLetters(villageId: string, userId: string): Promise<SentLetter[] | null> {
   const { data, error } = await createClient()
