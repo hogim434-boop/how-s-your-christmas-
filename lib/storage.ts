@@ -40,3 +40,24 @@ export function removeStorage(key: string) {
     // 지울 수 없으면 그대로 둡니다
   }
 }
+
+// ── 탭을 닫으면 사라지는 저장 공간 (sessionStorage) ──
+// 💡 localStorage와 쓰는 법은 같지만, 그 탭을 닫으면 지워집니다. "이번에 한 번만" 같은 표시에 씁니다.
+
+/** 이 탭에 저장된 글자를 읽습니다. 없거나 읽을 수 없으면 null */
+export function readSession(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** 이 탭에 글자를 저장합니다. 저장이 막혀 있으면 조용히 넘어갑니다 */
+export function writeSession(key: string, value: string) {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // 저장이 막혀 있으면 표시를 남기지 못합니다
+  }
+}
