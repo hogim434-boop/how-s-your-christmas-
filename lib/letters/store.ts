@@ -89,11 +89,12 @@ export async function fetchSentLetters(villageId: string, userId: string): Promi
  * - doneCount: 지금까지 한 일의 개수(편지 수 등)
  * - residentCount: 지금 주민 수. 화면을 열어 둔 사이에 새 주민이 들어왔을 수 있어서 함께 읽습니다
  *   (주민이 늘면 "써야 할 편지 수"도 늘어나므로, 옛 주민 수로 계산하면 진행률이 실제보다 높게 나옵니다)
+ * - capacity: 정원. 주민이 정원을 넘으면 데이터베이스가 정원을 자동으로 올리므로 함께 읽습니다
  */
-export async function fetchProgress(villageId: string): Promise<{ doneCount: number; residentCount: number } | null> {
+export async function fetchProgress(villageId: string): Promise<{ doneCount: number; residentCount: number; capacity: number } | null> {
   const { data, error } = await createClient().rpc("village_progress", { p_village: villageId });
   const row = error ? null : data[0];
-  return row ? { doneCount: row.done_count ?? 0, residentCount: row.resident_count ?? 0 } : null;
+  return row ? { doneCount: row.done_count ?? 0, residentCount: row.resident_count ?? 0, capacity: row.capacity ?? 0 } : null;
 }
 
 /** 데이터베이스 기준으로 편지 보내기가 끝났는지 (잠금 시각이 지났는지) */

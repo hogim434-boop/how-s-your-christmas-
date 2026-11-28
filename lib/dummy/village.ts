@@ -58,6 +58,8 @@ export function getDummyVillage(options: { id: string; n: number; level: number 
     kind: "friends",
     inviteCode: DEMO_INVITE_CODE,
     isDemo: true,
+    // 연습용 마을의 정원은 주민 수와 같게 둡니다 (진행률은 장식 단계 값으로 보여 주므로 계산에 쓰이지 않음)
+    capacity: n,
     // 아래 네 값은 진짜 마을용 칸입니다. 연습용 마을의 편지는 lib/dummy/letters.ts가 따로 만듭니다
     doneCount: 0,
     lettersClosed: false,

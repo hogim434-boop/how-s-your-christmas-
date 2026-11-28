@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_PARTS } from "@/lib/character/parts";
 import { toVillageData, type VillageRows } from "./data";
 
-const village = { id: "v1", name: "우리 마을", kind: "friends", invite_code: "abc234abc234" };
+const village = { id: "v1", name: "우리 마을", kind: "friends", invite_code: "abc234abc234", capacity: 2 };
 const row = (user_id: string, joined_at: string, character_parts: unknown = null) => ({ user_id, joined_at, character_parts });
 
 function rows(overrides: Partial<VillageRows> = {}): VillageRows {
@@ -54,6 +54,13 @@ describe("toVillageData", () => {
     expect(data.residents[2].characterParts).toBeNull();
   });
 
+  it("정원이 주민 수보다 크면 정원 기준으로 계산한다 (정원 5명·주민 2명)", () => {
+    // 정원 5명: 써야 할 편지 20통. 2통이면 10% → 1단계 (주민 수 2명 기준이었다면 100%)
+    const data = toVillageData(rows({ village: { ...village, capacity: 5 }, doneCount: 2 }));
+    expect(data.level).toBe(1);
+    expect(data.capacity).toBe(5);
+  });
+
   it("장식 단계는 지금 주민 수로 계산한다 (3명 → 4명이 되면 내려감)", () => {
     const three = [row("u1", "1"), row("u2", "2"), row("u3", "3")];
     // 3명: 써야 할 편지 6통. 3통이면 50% → 5단계
@@ -100,7 +107,8 @@ describe("toVillageData", () => {
   });
 
   it("혼자인 마을과 커플 마을(1명)은 0단계", () => {
-    expect(toVillageData(rows({ residents: [row("u1", "1")], doneCount: 5 })).level).toBe(0);
+    // 혼자면 편지를 쓸 상대가 없어 쓴 개수가 0입니다 (써야 할 편지는 정원 기준으로 정해져 있음)
+    expect(toVillageData(rows({ residents: [row("u1", "1")], doneCount: 0 })).level).toBe(0);
     const couple = { ...village, kind: "couple" };
     expect(toVillageData(rows({ village: couple, residents: [row("u1", "1")], doneCount: 5 })).level).toBe(0);
     expect(toVillageData(rows({ village: couple, doneCount: 5 })).kind).toBe("couple");

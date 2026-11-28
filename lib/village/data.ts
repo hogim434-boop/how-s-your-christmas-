@@ -32,6 +32,8 @@ export type VillageData = {
   inviteCode: string;
   /** 입주한 순서대로 (집이 놓이는 순서) */
   residents: VillageResident[];
+  /** 정원(목표 인원). 진행률의 기준 인원 = 정원과 주민 수 중 큰 쪽 (lib/decor/progress.ts) */
+  capacity: number;
   /** 장식 단계 (0~10). 처음 읽었을 때의 값이고, 화면은 편지를 쓸 때마다 doneCount로 다시 계산합니다 */
   level: number;
   /** 마을에서 지금까지 한 일의 개수 (삭제되지 않은 편지 수 등). 진행률(%)의 분자 */
@@ -48,7 +50,7 @@ export type VillageData = {
 
 /** 데이터베이스에서 읽어 온 그대로의 값들 */
 export type VillageRows = {
-  village: { id: string; name: string; kind: string; invite_code: string };
+  village: { id: string; name: string; kind: string; invite_code: string; capacity: number };
   residents: { user_id: string; character_parts: unknown; joined_at: string }[];
   /** 사용자 번호 → 이름 */
   names: Record<string, string | undefined>;
@@ -103,9 +105,10 @@ export function toVillageData(rows: VillageRows): VillageData {
       // 저장된 값이 없으면 null, 있으면 "목록에 있는 모양인지" 확인한 값
       characterParts: r.character_parts == null ? null : parseCharacterParts(r.character_parts),
     })),
-    // 장식 단계는 저장해 두지 않고, 읽을 때마다 "지금 주민 수"로 다시 계산합니다
-    // (친구가 새로 들어오면 써야 할 편지가 늘어 단계가 내려갈 수 있음 — PRD 핵심 규칙)
-    level: computeDecorLevel(doneCount, requiredCount(kind, ordered.length)),
+    capacity: village.capacity,
+    // 장식 단계는 저장해 두지 않고, 읽을 때마다 "정원과 지금 주민 수 중 큰 쪽"으로 다시 계산합니다
+    // (정원보다 많은 친구가 들어오면 써야 할 편지가 늘어 단계가 내려갈 수 있음 — PRD 핵심 규칙)
+    level: computeDecorLevel(doneCount, requiredCount(kind, ordered.length, village.capacity)),
     doneCount,
     lettersClosed: rows.lettersClosed,
     sentLetters: rows.sentLetters.map(toSentLetter),

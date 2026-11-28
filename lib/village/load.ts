@@ -19,7 +19,7 @@ export async function loadVillage(villageId: string, userId: string): Promise<Vi
 
   // 💡 Promise.all: 서로 기다릴 필요가 없는 질문들을 동시에 보내서 시간을 아낍니다
   const [villageResult, residentsResult, progressResult, unlockResult, sentResult] = await Promise.all([
-    supabase.from("villages").select("id, name, kind, invite_code").eq("id", villageId).maybeSingle(),
+    supabase.from("villages").select("id, name, kind, invite_code, capacity").eq("id", villageId).maybeSingle(),
     supabase.from("residents").select("user_id, character_parts, joined_at, nickname").eq("village_id", villageId),
     supabase.rpc("village_progress", { p_village: villageId }),
     // 편지 잠금이 풀리는 시각: 화면 시계가 아니라 데이터베이스가 아는 시각을 씁니다 (개발용 앞당기기 포함)
