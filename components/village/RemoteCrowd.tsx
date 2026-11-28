@@ -103,7 +103,11 @@ export function RemoteCrowd({ store, slots, boundsRadius, heightAt, assets }: Re
       depthWrite: false,
     });
     const mesh = new THREE.InstancedMesh(geometry, material, CROWD_CAPACITY);
-    mesh.instanceMatrix = crowd.instanceMatrix;
+    // 자리 값은 캐릭터와 "같은 숫자 배열"을 보되, 그래픽 장치에 올리는 묶음(속성)은 따로 둡니다.
+    // ⚠️ 속성까지 함께 쓰면 안 됩니다 (11.28 버그): 낮으로 바꿔 이 그림자를 치울 때 three.js가 그 속성의 그래픽 장치 쪽 저장소를 지우는데,
+    //    캐릭터는 지워진 저장소를 계속 보게 되어 몸이 옛 자리에 멈춰 서고 이름표·그림자만 움직였습니다.
+    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(crowd.instanceMatrix.array, 16);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
     mesh.renderOrder = 2;
     mesh.frustumCulled = false;
@@ -280,6 +284,7 @@ function updateCrowd(
   if (blobs) blobs.count = shown;
   if (shown > 0) {
     crowd.instanceMatrix.needsUpdate = true;
+    if (blobs) blobs.instanceMatrix.needsUpdate = true;
     assets.poseAttribute.needsUpdate = true;
   }
   if (blending > 0) assets.commitBlends();
