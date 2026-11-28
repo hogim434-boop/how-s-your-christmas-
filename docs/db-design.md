@@ -64,6 +64,7 @@ Supabase 로그인 기능이 만든 계정(`auth.users`)과 1:1로 짝을 이룹
 | kind | text | `'friends'` 또는 `'couple'`만 (check), **만든 뒤 변경 불가** | 마을 종류 (D-03) |
 | invite_code | text | 유일, 비울 수 없음 | 초대 링크 값. 추측하기 어려운 무작위 글자 |
 | created_by | uuid | → users.id | 만든 사람 |
+| capacity | smallint | 2~30 (check), **줄일 수 없음** | 정원(목표 인원). 친구 마을은 만들 때 3~30명으로 정하고 커플 마을은 2. 진행률의 기준 인원 = 정원과 주민 수 중 큰 쪽. 주민이 정원을 넘으면 자동으로 늘어남 [확정 11.28] |
 | max_decor_level | int | `0`, 0~10 (check) | **지금까지 가장 높았던** 장식 단계. 알림 중복 방지용만 (D-10) |
 | star_attached_at | timestamptz | 비워도 됨 | **처음** 100%에 도달한 시각 (성공 지표용) |
 | photo_save_count | int | `0`, 0 이상 | 인증샷 저장 횟수 |
@@ -155,13 +156,14 @@ Supabase 로그인 기능이 만든 계정(`auth.users`)과 1:1로 짝을 이룹
 - 해결: 편지 **내용은 보여 주지 않고 숫자만** 돌려주는 DB 함수를 하나 만듭니다.
 
 ```
-village_progress(village_id) → { resident_count, done_count }
+village_progress(village_id) → { resident_count, done_count, capacity }
   - 부르는 사람이 그 마을 주민인지 먼저 확인
   - 친구 마을: done_count = 삭제되지 않은 편지 수
   - 커플 마을: done_count = 질문지 답 수 + 삭제되지 않은 편지 수
 ```
 
 - 화면은 이 숫자를 받아 `requiredCount()` → `computeDecorLevel()`로 지금 장식 단계를 계산합니다.
+- **정원 [확정 11.28]**: 친구 마을의 기준 인원은 `greatest(villages.capacity, 주민 수)`입니다. 정원은 만들 때 3~30명으로 정하고, 주민이 정원을 넘으면 주민 트리거가 올리며, 줄이는 수정은 마을 트리거가 거부합니다. 서버 쪽 같은 계산은 `private.decor_level(kind, residents, done, capacity)`입니다 (`supabase/migrations`의 09 파일).
 - 편지를 보낼 때마다 서버가 같은 계산을 해서 `shouldNotifyNewOrnament(지금 단계, max_decor_level)`가 참이면
   ① `max_decor_level`을 올리고 ② 처음 10단계면 `star_attached_at`을 기록하고 ③ 알림을 보냅니다 (Task 009·010).
 
