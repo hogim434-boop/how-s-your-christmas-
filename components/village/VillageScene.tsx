@@ -32,6 +32,7 @@ import { VillageSnow } from "./VillageSnow";
 import { ChimneySmoke } from "./ChimneySmoke";
 import { SkyEffects } from "./SkyEffects";
 import type { DummyResident } from "@/lib/dummy/village";
+import type { CharacterParts } from "@/types/domain";
 import { hasDecor } from "@/lib/decor/decorTable";
 
 interface VillageSceneProps {
@@ -52,8 +53,10 @@ interface VillageSceneProps {
   walkStore: WalkStore;
   /** 같은 마을에 접속해 있는 다른 주민들의 자리·목표 보관함 (lib/village/remoteStore.ts). 비어 있으면 아무도 그리지 않습니다 */
   remoteStore: RemoteStore;
-  /** 개발용: true면 다른 주민을 예전 방식(한 명씩 따로)으로 그립니다 (연습용 마을의 &classic=1) */
-  remoteClassic?: boolean;
+  /** 내 캐릭터의 꾸미기 값 */
+  playerParts: CharacterParts;
+  /** 다른 주민의 꾸미기 값 (주민 id → 값) */
+  remoteParts: Readonly<Record<string, CharacterParts>>;
   /** 내 캐릭터가 처음 서 있을 자리. 없으면 광장 앞 기본 자리 */
   playerStart?: Point;
   /**
@@ -85,7 +88,8 @@ function VillageScene({
   level,
   walkStore,
   remoteStore,
-  remoteClassic,
+  playerParts,
+  remoteParts,
   playerStart,
   paused,
   treeView,
@@ -133,7 +137,7 @@ function VillageScene({
           {/* Suspense: 별 등 준비하는 동안 기다림 */}
           <Suspense fallback={null}>
             {/* 밤 = 예전 시안 "미니어처 밤" */}
-            <NightAtmosphere villageRadius={villageRadius + FENCE_MARGIN} slots={slots} />
+            <NightAtmosphere villageRadius={villageRadius + FENCE_MARGIN} slots={slots} heightAt={terrain.heightAt} />
           </Suspense>
           {/* 그림자를 만들고 받을 물체 표시 */}
           <ShadowFlags />
@@ -189,6 +193,7 @@ function VillageScene({
         <ChimneySmoke slots={slots.slice(0, residents.length)} sky={sky} />
         {/* 걸을 수 있는 범위: 울타리 바로 안쪽까지 */}
         <Player
+          parts={playerParts}
           store={walkStore}
           slots={slots}
           boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
@@ -198,7 +203,7 @@ function VillageScene({
         {/* 함께 걷기: 같은 마을에 접속해 있는 다른 주민들 (보관함이 비어 있으면 아무것도 그리지 않음) */}
         <RemotePlayers
           store={remoteStore}
-          classic={remoteClassic}
+          partsById={remoteParts}
           slots={slots}
           boundsRadius={villageRadius + FENCE_MARGIN - FENCE_INNER_GAP}
           heightAt={terrain.heightAt}
