@@ -5,16 +5,18 @@
 // 여기서는 "각 장식 이름 → 임시 3D 모양"만 연결합니다. (진짜 모델로 바꿀 때 이 파일의 모양만 교체)
 // level 0이면 아무것도 그리지 않아서 트리와 광장이 완전히 비어 있습니다.
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Kit } from "./Kit";
+import { hasUpgrade, upgradedGeometry, upgradedMaterial } from "./upgradedOrnaments";
+import { PopIn, RevealContext, RevealSparkles, blinkScale, useInstancedReveal, type Reveal } from "./reveal";
 import { BULB_COLORS, BulbString } from "./BulbString";
 import { InstancedKit, placement } from "./InstancedKit";
 import { NIGHT_GLOW, useNight } from "./nightContext";
 import { Fireworks } from "./Firework";
 import { softDot } from "./particles";
-import { giftLayout, visibleStages, type DecorKey } from "@/lib/decor/decorTable";
+import { DECOR_STAGES, giftLayout, visibleStages, type DecorKey } from "@/lib/decor/decorTable";
 import {
   LAMP_TOP_Y,
   TREE_HEIGHT,
@@ -167,7 +169,23 @@ const CORD = { length: 0.28, radius: 0.014, color: "#d9b25a" };
 const SWAY = { side: 0.09, front: 0.05, speed: 1.2 };
 
 /** 가지 끝에 끈으로 매달려 살랑살랑 흔들리는 오너먼트 한 개 */
-function Ornament({ kind, slot, index }: { kind: OrnamentKey; slot: OrnamentSlot; index: number }) {
+function Ornament({
+  kind,
+  slot,
+  index,
+  upgraded,
+  stage,
+  order,
+}: {
+  kind: OrnamentKey;
+  slot: OrnamentSlot;
+  index: number;
+  upgraded: boolean;
+  /** 이 장식이 생기는 단계 (등장 연출용) */
+  stage: number;
+  /** 같은 단계에 함께 생기는 장식 종류 가운데 몇 번째인지 (차례로 나타나게 하는 데 씁니다) */
+  order: number;
+}) {
   const { position, rotationY } = ornamentTransform(slot);
   const look = ORNAMENT_LOOK[kind];
   // 위쪽 장식일수록 작게 (끈 길이도 함께)
@@ -176,6 +194,8 @@ function Ornament({ kind, slot, index }: { kind: OrnamentKey; slot: OrnamentSlot
   const cord = CORD.length * size;
   // 초록 지팡이 사탕 모델은 한쪽으로 치우쳐 있어서 가운데를 따로 맞춥니다
   const centerX = kind === "candy_cane" && index % 2 === 1 ? -0.1 : (look.centerX ?? 0);
+  // 업그레이드 모양으로 바뀐 상태인지 (양말처럼 업그레이드 모양이 없는 종류는 그대로)
+  const swapped = upgraded && hasUpgrade(kind);
   const swing = useRef<THREE.Group>(null);
   const night = useNight();
   // 장식마다 흔들리는 박자와 돌아간 방향을 다르게 (자리 값으로 정해 새로고침해도 같음)
@@ -193,6 +213,16 @@ function Ornament({ kind, slot, index }: { kind: OrnamentKey; slot: OrnamentSlot
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       <group ref={swing}>
+        {/* 새로 생긴 장식이면 가지에서 톡 하고 자라나듯 나타납니다. 업그레이드(8단계) 때는 새 모양으로 바뀌며 다시 톡 나타납니다 */}
+        <PopIn
+          key={swapped ? "upgraded" : "base"}
+          stage={swapped ? UPGRADE_STAGE : stage}
+          // 게이지에서 원래 단계를 눌러도, 업그레이드 단계(80%)를 눌러도 깜빡입니다
+          blinkStages={swapped ? [stage, UPGRADE_STAGE] : [stage]}
+          delay={(order * 3 + index) * 0.1}
+          sparkle={0.8 * size}
+          sparkleY={-cord - 0.4 * size}
+        >
         {/* 끈 */}
         <mesh position={[0, -cord / 2, 0]}>
           <cylinderGeometry args={[CORD.radius, CORD.radius, cord, 5]} />
@@ -200,16 +230,22 @@ function Ornament({ kind, slot, index }: { kind: OrnamentKey; slot: OrnamentSlot
         </mesh>
         {/* 장식: 꼭대기가 끈 아래 끝에 오도록 내려 달고, 살짝 틀어서 손으로 단 느낌을 냅니다 */}
         <group position={[0, -cord, 0]} rotation={[0, Math.sin(phase) * 0.35, 0]}>
-          <Kit
-            pack={look.pack}
-            name={ornamentModel(kind, index)}
-            // 밤에는 장식이 자기 색으로 살짝 빛납니다
-            glow={night ? ORNAMENT_NIGHT.self : 0}
-            scale={scale}
-            rotation={[look.rotationX ?? 0, 0, 0]}
-            position={[-centerX * scale, -look.top * scale, 0]}
-          />
+          {/* 8단계(80%)부터: 같은 자리의 장식을 업그레이드 모양으로 교체합니다 (양말은 그대로) → upgradedOrnaments.ts */}
+          {swapped ? (
+            <mesh geometry={upgradedGeometry(kind, index)} material={upgradedMaterial()} scale={size} />
+          ) : (
+            <Kit
+              pack={look.pack}
+              name={ornamentModel(kind, index)}
+              // 밤에는 장식이 자기 색으로 살짝 빛납니다
+              glow={night ? ORNAMENT_NIGHT.self : 0}
+              scale={scale}
+              rotation={[look.rotationX ?? 0, 0, 0]}
+              position={[-centerX * scale, -look.top * scale, 0]}
+            />
+          )}
         </group>
+        </PopIn>
       </group>
     </group>
   );
@@ -232,7 +268,8 @@ function StringLights() {
   return (
     <group>
       {pairs.map((p, i) => (
-        <BulbString key={i} from={p.from} to={p.to} sag={0.8} count={10} size={0.15} />
+        // 새로 생길 때는 줄마다 차례로, 전구도 하나씩 켜집니다
+        <BulbString key={i} from={p.from} to={p.to} sag={0.8} count={10} size={0.15} reveal={{ stage: 1, delay: i * 0.22 }} />
       ))}
     </group>
   );
@@ -268,6 +305,12 @@ const ROOF_BULB_SIZE = 0.09;
 const ROOF_BULB_SAG = 0.08;
 
 /** 모든 집의 지붕 테두리 전구를 한 번에 그립니다 (집이 많아져도 그리기 명령은 1번) */
+/** 집 장식이 생기는 단계와, 새로 생길 때 집 한 채에서 다음 집으로 넘어가는 간격(초) */
+const HOUSE_STAGE = 5;
+const HOUSE_STEP = 0.15;
+/** 오너먼트 업그레이드 단계 */
+const UPGRADE_STAGE = 8;
+
 function RoofLights({ houses }: { houses: THREE.Matrix4[] }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const night = useNight();
@@ -297,6 +340,12 @@ function RoofLights({ houses }: { houses: THREE.Matrix4[] }) {
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
   }, [houses, night]);
+  // 새로 생길 때: 집집마다 차례로, 전구가 하나씩 켜집니다
+  useInstancedReveal(mesh, {
+    stage: HOUSE_STAGE,
+    delayOf: (n) => Math.floor(n / ROOF_BULBS) * HOUSE_STEP + (n % ROOF_BULBS) * 0.012,
+    seconds: 0.2,
+  });
 
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, houses.length * ROOF_BULBS]} frustumCulled={false}>
@@ -326,9 +375,17 @@ function HouseDecor({ slots }: { slots: HouseSlot[] }) {
 
   return (
     <group>
-      <InstancedKit pack="kaykit" name="wreath" matrices={wreaths} />
+      {/* 새로 생길 때: 집집마다 차례로 톡 나타나고 그 자리에서 반짝임이 터집니다 */}
+      <InstancedKit pack="kaykit" name="wreath" matrices={wreaths} reveal={{ stage: HOUSE_STAGE, step: HOUSE_STEP, every: 1, offset: 0, sparkle: 0 }} />
       {SIDE_PROPS.map((prop, kind) => (
-        <InstancedKit key={prop.name} pack="kaykit" name={prop.name} matrices={props[kind]} />
+        <InstancedKit
+          key={prop.name}
+          pack="kaykit"
+          name={prop.name}
+          matrices={props[kind]}
+          // 이 장식은 집 세 채마다 하나씩 놓이므로, j번째 조각은 (j × 3 + kind)번째 집의 것입니다
+          reveal={{ stage: HOUSE_STAGE, step: HOUSE_STEP, every: SIDE_PROPS.length, offset: kind, sparkle: 1.1 }}
+        />
       ))}
       <RoofLights key={houses.length} houses={houses} />
     </group>
@@ -341,19 +398,12 @@ function AmbientProps() {
   const pile = { a: -2.5, r: 6.2 };
   return (
     <group>
-      <Kit
-        pack="kaykit"
-        name="snowman_A"
-        scale={1.1}
-        position={[Math.sin(snowman.a) * snowman.r, 0, Math.cos(snowman.a) * snowman.r]}
-        rotation={[0, Math.PI / 3, 0]}
-      />
-      <Kit
-        pack="kaykit"
-        name="snowball_pile"
-        scale={1.2}
-        position={[Math.sin(pile.a) * pile.r, 0, Math.cos(pile.a) * pile.r]}
-      />
+      <PopIn stage={1} delay={0.3} sparkleY={0.9} position={[Math.sin(snowman.a) * snowman.r, 0, Math.cos(snowman.a) * snowman.r]}>
+        <Kit pack="kaykit" name="snowman_A" scale={1.1} rotation={[0, Math.PI / 3, 0]} />
+      </PopIn>
+      <PopIn stage={1} delay={0.5} sparkleY={0.4} position={[Math.sin(pile.a) * pile.r, 0, Math.cos(pile.a) * pile.r]}>
+        <Kit pack="kaykit" name="snowball_pile" scale={1.2} />
+      </PopIn>
     </group>
   );
 }
@@ -378,11 +428,11 @@ function SantaRudolph() {
   // 광장 둘레를 따라(접선 방향) 서 있게 돌림
   const rotation = Math.atan2(Math.cos(SANTA_ANGLE), -Math.sin(SANTA_ANGLE));
   return (
-    <group position={[x, 0, z]} rotation={[0, rotation, 0]}>
+    <PopIn stage={7} sparkle={2} sparkleY={1.2} position={[x, 0, z]} rotation={[0, rotation, 0]}>
       <Kit name="reindeer" scale={1.8} position={[0, 0, 1.9]} />
       <Kit name="sled" scale={1.8} position={[0, 0, -0.2]} />
       <SledLoad />
-    </group>
+    </PopIn>
   );
 }
 
@@ -535,6 +585,10 @@ function layoutTreeBulbs(curve: THREE.CatmullRomCurve3): { matrices: THREE.Matri
  * 밤에는 전구가 스스로 빛나서(빛 번짐) 트리와 오너먼트 둘레가 반짝입니다. (가짜 빛, 진짜 조명 없음)
  * warm: 9단계(전구 줄 업그레이드)가 되면 알록달록한 색이 사라지고, 같은 줄이 따뜻한 금빛으로 바뀝니다. (11.26 사용자 요청)
  */
+/** 전구 줄이 금빛으로 바뀌는 단계와, 금빛이 아래에서 위로 번지는 데 걸리는 시간(초) */
+const WARM_STAGE = 9;
+const WARM_WAVE_SECONDS = 1.4;
+
 function TreeLights({ warm }: { warm: boolean }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const night = useNight();
@@ -563,17 +617,52 @@ function TreeLights({ warm }: { warm: boolean }) {
     m.instanceMatrix.needsUpdate = true;
   }, [layout]);
   // 전구 색: 낮/밤이 바뀌거나 업그레이드되면 색만 다시 칠합니다 (모양·자리는 그대로)
+  // warmCount: 아래에서부터 몇 개까지를 금빛으로 칠할지 (전부면 전구 수, 하나도 아니면 0)
+  const paint = useCallback(
+    (warmCount: number) => {
+      const m = mesh.current;
+      if (!m) return;
+      const color = new THREE.Color();
+      layout.colorIndex.forEach((index, i) => {
+        const bulbColor = i < warmCount ? WARM_BULB : TREE_BULB_COLORS[index];
+        // 밤에는 색을 몇 배로 밝혀서 빛 번짐 효과가 불빛처럼 퍼뜨리게 합니다
+        m.setColorAt(i, color.set(bulbColor).multiplyScalar(night ? NIGHT_GLOW : 1));
+      });
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    },
+    [layout, night],
+  );
+  // 금빛으로 바뀌는 물결의 시작 시각 (9단계에 방금 올라왔을 때만. 아니면 null)
+  const reveal = useContext(RevealContext);
+  const wasWarm = useRef(warm);
+  const waveStart = useRef<number | null>(null);
   useLayoutEffect(() => {
-    const m = mesh.current;
-    if (!m) return;
-    const color = new THREE.Color();
-    layout.colorIndex.forEach((index, i) => {
-      const bulbColor = warm ? WARM_BULB : TREE_BULB_COLORS[index];
-      // 밤에는 색을 몇 배로 밝혀서 빛 번짐 효과가 불빛처럼 퍼뜨리게 합니다
-      m.setColorAt(i, color.set(bulbColor).multiplyScalar(night ? NIGHT_GLOW : 1));
-    });
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [layout, night, warm]);
+    const turnedWarm = warm && !wasWarm.current;
+    wasWarm.current = warm;
+    if (turnedWarm && reveal && WARM_STAGE > reveal.from && WARM_STAGE <= reveal.to) {
+      // 한꺼번에 바꾸지 않고, 아래에서 위로 금빛이 번져 올라가게 합니다 (아래 useFrame)
+      waveStart.current = performance.now() / 1000;
+      return;
+    }
+    waveStart.current = null;
+    paint(warm ? TREE_LIGHTS.bulbs : 0);
+    // reveal은 "방금 올라온 순간"에만 보면 되므로 바뀔 때마다 다시 칠하지 않습니다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paint, warm]);
+  useFrame(() => {
+    if (waveStart.current === null) return;
+    const p = (performance.now() / 1000 - waveStart.current) / WARM_WAVE_SECONDS;
+    paint(Math.min(1, p) * TREE_LIGHTS.bulbs);
+    if (p >= 1) waveStart.current = null;
+  });
+  // 3단계에 새로 생길 때: 전구가 아래에서 위로 차례로 켜집니다
+  // 게이지에서는 30%(전구 줄)를 눌러도, 금빛으로 바뀐 뒤 90%를 눌러도 깜빡입니다
+  useInstancedReveal(mesh, {
+    stage: 3,
+    delayOf: (i) => (i / TREE_LIGHTS.bulbs) * 1.4,
+    seconds: 0.2,
+    blinkStages: warm ? [3, WARM_STAGE] : [3],
+  });
   return (
     <group>
       {/* 전선 */}
@@ -665,7 +754,8 @@ const TWINKLE_FRAGMENT = /* glsl */ `
 `;
 
 /** 매 장면마다 시간과 화면 크기를 꼬마 불빛에 알려 줍니다 */
-function updateTwinkle(material: THREE.ShaderMaterial, time: number, scale: number) {
+function updateTwinkle(material: THREE.ShaderMaterial, time: number, scale: number, intensity: number) {
+  material.uniforms.uIntensity.value = intensity;
   material.uniforms.uTime.value = time;
   material.uniforms.uScale.value = scale;
 }
@@ -691,7 +781,11 @@ function TreeTwinkleLights() {
   );
   useFrame(({ clock, size, viewport }) => {
     // 점 크기는 "화면 세로 픽셀 수"에 비례해야 어느 기기에서나 같은 크기로 보입니다
-    if (material.current) updateTwinkle(material.current, clock.elapsedTime, (size.height * viewport.dpr) / 2);
+    if (!material.current) return;
+    // 게이지에서 90%를 누르면 꼬마 불빛이 잠깐 더 밝아졌다 돌아옵니다 (크기 대신 밝기로 깜빡임)
+    const k = blinkScale(9);
+    const intensity = (night ? 3.2 : 1.1) * (k === null ? 1 : 1 + (k - 1) * 3);
+    updateTwinkle(material.current, clock.elapsedTime, (size.height * viewport.dpr) / 2, intensity);
   });
   return (
     <group>
@@ -862,7 +956,8 @@ function StarShape() {
   });
 
   return (
-    <group position={[0, TREE_HEIGHT + 1.25, 0]}>
+    // PopIn: 게이지에서 100%를 누르면 별이 깜빡입니다 (새로 생길 때는 톡 나타남)
+    <PopIn stage={10} sparkle={2.2} position={[0, TREE_HEIGHT + 1.25, 0]}>
       {/* 큰 십자 빛살 */}
       <sprite ref={rays} scale={5}>
         <spriteMaterial map={sparkle()} color={night ? STAR_COLORS.ray : STAR_COLORS.dayRay} transparent opacity={0.7} blending={blending} depthWrite={false} toneMapped={false} />
@@ -885,7 +980,7 @@ function StarShape() {
           <spriteMaterial map={sparkle()} color={night ? STAR_COLORS.ray : STAR_COLORS.dayRay} transparent opacity={0} blending={blending} depthWrite={false} toneMapped={false} />
         </sprite>
       ))}
-    </group>
+    </PopIn>
   );
 }
 
@@ -956,7 +1051,10 @@ function Gifts({ level }: { level: number }) {
   return (
     <group>
       {placed.map((g, i) => (
-        <Kit key={i} pack="kaykit" name={g.model} position={[g.x, g.y, g.z]} rotation={[0, g.rot, 0]} scale={GIFT_SCALE} />
+        // i번째 선물은 (i + 1)단계에 생깁니다
+        <PopIn key={i} stage={i + 1} delay={0.15} sparkleY={0.5} position={[g.x, g.y, g.z]} rotation={[0, g.rot, 0]}>
+          <Kit pack="kaykit" name={g.model} scale={GIFT_SCALE} />
+        </PopIn>
       ))}
     </group>
   );
@@ -975,14 +1073,44 @@ const ORNAMENT_KEYS = Object.keys(ORNAMENT_SLOTS) as OrnamentKey[];
 
 export function Decorations({ level, slots }: DecorationsProps) {
   const keys = new Set(visibleStages(level).map((s) => s.key));
+  const upgraded = keys.has("ornament_upgrade");
+  // 단계가 올라간 순간을 기억합니다: 그 구간에 새로 생긴 장식만 등장 연출을 합니다 (reveal.tsx)
+  // 💡 화면을 그리는 도중에 "이전 값과 달라졌는지" 비교해 상태를 맞추는 방법입니다 (React가 권하는 방식)
+  const [seenLevel, setSeenLevel] = useState(level);
+  const [reveal, setReveal] = useState<Reveal>(null);
+  if (level !== seenLevel) {
+    setSeenLevel(level);
+    setReveal(level > seenLevel ? { from: seenLevel, to: level } : null);
+  }
+  // 연출이 끝날 만큼 지나면 기억을 지웁니다 (나중에 새 주민이 들어와 집 장식이 다시 그려질 때 또 연출되지 않게)
+  useEffect(() => {
+    if (!reveal) return;
+    const timer = setTimeout(() => setReveal(null), 5000);
+    return () => clearTimeout(timer);
+  }, [reveal]);
+  const night = useNight();
+  // 업그레이드 장식은 재질 하나를 같이 쓰므로, 밤이 되면 그 재질의 빛나는 정도만 한 번 바꿉니다
+  useEffect(() => {
+    if (upgraded) upgradedMaterial().emissiveIntensity = night ? ORNAMENT_NIGHT.self : 0;
+  }, [upgraded, night]);
   if (level <= 0) return null;
 
+  // 같은 단계에 함께 생기는 오너먼트 종류끼리 순번을 매깁니다 (차례로 나타나게)
+  const shownKinds = ORNAMENT_KEYS.filter((k) => keys.has(ORNAMENT_STAGE[k]));
+  const stageOf = (kind: OrnamentKey) => DECOR_STAGES.find((s) => s.key === ORNAMENT_STAGE[kind])?.level ?? 0;
+  const orderOf = (kind: OrnamentKey) =>
+    upgraded ? shownKinds.indexOf(kind) : shownKinds.filter((k) => ORNAMENT_STAGE[k] === ORNAMENT_STAGE[kind]).indexOf(kind);
+
   return (
+    <RevealContext.Provider value={reveal}>
     <group>
+      <RevealSparkles />
       {keys.has("string_lights") && <StringLights />}
       <AmbientProps />
-      {ORNAMENT_KEYS.filter((k) => keys.has(ORNAMENT_STAGE[k])).map((kind) =>
-        ORNAMENT_SLOTS[kind].map((slot, i) => <Ornament key={`${kind}-${i}`} kind={kind} slot={slot} index={i} />),
+      {shownKinds.map((kind) =>
+        ORNAMENT_SLOTS[kind].map((slot, i) => (
+          <Ornament key={`${kind}-${i}`} kind={kind} slot={slot} index={i} upgraded={upgraded} stage={stageOf(kind)} order={orderOf(kind)} />
+        )),
       )}
       {keys.has("house_decor") && <HouseDecor slots={slots} />}
       {keys.has("santa_rudolph") && <SantaRudolph />}
@@ -991,5 +1119,6 @@ export function Decorations({ level, slots }: DecorationsProps) {
       {keys.has("star") && <StarAndFireworks />}
       <Gifts level={level} />
     </group>
+    </RevealContext.Provider>
   );
 }
