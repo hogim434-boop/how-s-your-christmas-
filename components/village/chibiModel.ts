@@ -41,6 +41,8 @@ type Piece = {
   when: [string, string][];
   color: string;
   limb: number;
+  /** 살(얼굴이 그려진 머리·목·손·다리)인지. 마을에서는 살색을 더 진하게 칠합니다 */
+  skin: boolean;
 };
 
 /** 모델 파일 → 조각 목록. 파일마다 한 번만 읽어 둡니다 */
@@ -67,6 +69,7 @@ function readKit(scene: THREE.Object3D) {
         .map((pair) => pair.split("=") as [string, string]),
       color: data.color,
       limb: data.limb ?? 0,
+      skin: mesh.name.startsWith("HeadSkin") || data.color === MODEL_SKIN,
     });
   });
   kit = { pieces, map };
@@ -74,10 +77,18 @@ function readKit(scene: THREE.Object3D) {
   return kit;
 }
 
+// 살색 진하게 하기 (11.29 피드백: 마을의 밝은 낮 조명에서 얼굴이 흰색처럼 보임 → 사용자 확정: 꾸미기 창은 밝게, 마을은 진하게)
+// 💡 모델의 살색은 그대로 두고, 마을에서 캐릭터를 만들 때 살 조각(머리·목·손·다리)의 색에만 아래 값을 곱합니다.
+//    머리는 얼굴 그림 × 칠한 색으로 그려지므로, 칠한 색에 곱하면 얼굴과 뒤통수가 똑같이 진해집니다.
+/** 모델에 적힌 살색 (scripts/blender/make_chibi.py의 SKIN) */
+const MODEL_SKIN = "#fde0cb";
+/** 마을에서 살색에 곱하는 값 (#fde0cb가 #f5c4a1처럼 보이게 하는 비율) */
+const VILLAGE_SKIN = new THREE.Color(0.93, 0.74, 0.6);
+
 const TINT = new THREE.Color();
 
 /** 고른 옷에 맞는 조각을 골라 색을 칠하고 한 덩어리로 합칩니다 */
-function buildGeometry(pieces: Piece[], parts: CharacterParts): THREE.BufferGeometry {
+function buildGeometry(pieces: Piece[], parts: CharacterParts, deepSkin: boolean): THREE.BufferGeometry {
   const chosen = parts as unknown as Record<string, string>;
   const list: THREE.BufferGeometry[] = [];
   for (const piece of pieces) {
@@ -85,6 +96,7 @@ function buildGeometry(pieces: Piece[], parts: CharacterParts): THREE.BufferGeom
     // 색: "part:top"이면 그 부위에 고른 색, 아니면 조각에 정해진 색
     const part = PART_KEYS.find((p) => piece.color === `part:${p}`);
     TINT.set(part ? colorHex(chosen[colorField(part)]) : piece.color);
+    if (deepSkin && piece.skin) TINT.multiply(VILLAGE_SKIN);
     const source = piece.geometry;
     const count = source.attributes.position.count;
     const colors = new Float32Array(count * 3);
@@ -154,9 +166,10 @@ export type Chibi = {
 
 /**
  * 받아 온 모델 파일에서 캐릭터 한 명을 만듭니다.
+ * - deepSkin: 살색을 더 진하게 칠할지 (마을 = true, 꾸미기 창 = false: 모델의 밝은 살색 그대로)
  * - offset: 서 있을 때의 흔들림이 사람마다 어긋나도록 주는 시작 박자 (모두가 똑같이 움직이지 않게)
  */
-export function createChibi(scene: THREE.Object3D, parts: CharacterParts, offset = 0): Chibi {
+export function createChibi(scene: THREE.Object3D, parts: CharacterParts, offset = 0, deepSkin = true): Chibi {
   const kit = readKit(scene);
   const swing = new THREE.Vector4();
   const glow = { value: 0 };
@@ -175,7 +188,7 @@ export function createChibi(scene: THREE.Object3D, parts: CharacterParts, offset
   };
   // 캐릭터마다 재질은 따로지만(각도 값이 달라서) 프로그램은 하나를 함께 씁니다
   material.customProgramCacheKey = () => "chibi-swing";
-  const mesh = new THREE.Mesh(buildGeometry(kit.pieces, parts), material);
+  const mesh = new THREE.Mesh(buildGeometry(kit.pieces, parts, deepSkin), material);
   mesh.scale.setScalar(CHIBI_SCALE);
   // 반투명해진 집 뒤에 있어도 캐릭터는 또렷하게 보이게 합니다 (showThrough.ts)
   markShowThrough(mesh);
@@ -185,12 +198,6 @@ export function createChibi(scene: THREE.Object3D, parts: CharacterParts, offset
 /** 낮·밤에 맞춰 캐릭터가 스스로 밝히는 정도를 정합니다 (밤에만 밝힙니다) */
 export function setChibiNight(chibi: Chibi, night: boolean) {
   chibi.glow.value = night ? CHIBI_NIGHT_GLOW : 0;
-}
-
-/** 옷을 갈아입힙니다 (꾸미기 창의 미리보기용) */
-export function dressChibi(chibi: Chibi, scene: THREE.Object3D, parts: CharacterParts) {
-  chibi.mesh.geometry.dispose();
-  chibi.mesh.geometry = buildGeometry(readKit(scene).pieces, parts);
 }
 
 /** 캐릭터가 화면에서 사라질 때: 그래픽 장치에 올려 둔 것을 놓아 줍니다 (얼굴 그림은 모두가 함께 쓰므로 지우지 않음) */
