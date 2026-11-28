@@ -8,6 +8,7 @@ import { useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
 import { NIGHT_GLOW, useNight } from "./nightContext";
+import { useInstancedReveal } from "./reveal";
 
 /** 전구 색 돌려쓰기 */
 export const BULB_COLORS = ["#e8504a", "#ffd45c", "#4fb477", "#6c9be8", ...VILLAGE_COLORS.ornaments];
@@ -21,9 +22,11 @@ interface BulbStringProps {
   count?: number;
   /** 전구 크기 */
   size?: number;
+  /** 새로 생길 때의 등장 연출: 생기는 단계와, 이 줄이 켜지기 시작할 때까지의 시간(초). 없으면 연출하지 않습니다 */
+  reveal?: { stage: number; delay: number };
 }
 
-export function BulbString({ from, to, sag = 0.6, count = 9, size = 0.13 }: BulbStringProps) {
+export function BulbString({ from, to, sag = 0.6, count = 9, size = 0.13, reveal }: BulbStringProps) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const night = useNight();
 
@@ -49,6 +52,9 @@ export function BulbString({ from, to, sag = 0.6, count = 9, size = 0.13 }: Bulb
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
   }, [from, to, sag, count, night]);
+  // 새로 생길 때: 전구가 줄을 따라 하나씩 켜집니다 (reveal이 없으면 99단계 = 연출 없음)
+  const delay = reveal?.delay ?? 0;
+  useInstancedReveal(mesh, { stage: reveal?.stage ?? 99, delayOf: (i) => delay + i * 0.035, seconds: 0.2 });
 
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, count]} frustumCulled={false}>
