@@ -42,6 +42,7 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 | `LINE_CHANNEL_SECRET` | LINE Developers → LINE Login 채널 → Basic settings | 🔒 **비밀** |
 | `KAKAO_REST_API_KEY` | 카카오 개발자 콘솔 → 앱 키 → REST API 키 | 공개돼도 됨 |
 | `KAKAO_CLIENT_SECRET` | 카카오 개발자 콘솔 → 카카오 로그인 → 보안 → Client Secret | 🔒 **비밀** |
+| `NEXT_PUBLIC_KAKAO_JS_KEY` | 카카오 개발자 콘솔 → 앱 설정 → 플랫폼 키 → JavaScript 키 | 공개돼도 됨 (없으면 카카오 로그인이 아이디·비밀번호 입력 방식으로 동작) |
 
 - 적용 범위(Environment)는 **Production**에 꼭 체크합니다. (Preview도 쓰려면 함께 체크)
 - `.env.local`에 있는 `SUPABASE_DB_PASSWORD`는 **코드가 쓰지 않으므로 넣지 않습니다.**
@@ -60,6 +61,8 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 | --- | --- | --- |
 | **LINE Developers** → LINE Login 채널 → LINE Login 탭 → **Callback URL** | 한 줄 추가 | `https://<운영주소>/auth/line/callback` |
 | **카카오 개발자 콘솔** → 카카오 로그인 → **Redirect URI** | 한 줄 추가 | `https://<운영주소>/auth/kakao/callback` |
+| **카카오 개발자 콘솔** → 플랫폼 키 → **JavaScript 키** → JavaScript SDK 도메인 | 한 줄 추가 | `https://<운영주소>` (끝에 `/` 없이) |
+| 같은 화면의 **카카오 로그인 리다이렉트 URI** | 한 줄 추가 | `https://<운영주소>/auth/kakao/callback` |
 | **카카오 개발자 콘솔** → 앱 설정 → 플랫폼 → Web → **사이트 도메인** | 한 줄 추가 | `https://<운영주소>` |
 | **Supabase** → Authentication → URL Configuration → **Site URL** | 바꾸기 | `https://<운영주소>` |
 
@@ -67,6 +70,7 @@ Vercel → 프로젝트 → **Settings → Environment Variables**에서 아래 
 - 내 컴퓨터에서 카카오 로그인을 해 보려면 Redirect URI에 `http://localhost:3001/auth/kakao/callback`도 넣습니다.
 - **카카오 동의항목은 "닉네임" 하나만 켜면 됩니다.** (11.27 변경) 카카오 로그인은 LINE처럼 우리 서버가 카카오와 직접 통신하고 닉네임만 요청합니다. 이메일은 받지 않으므로 **비즈 앱 전환(본인인증)이 필요 없습니다.** Supabase의 Kakao 로그인 설정(Providers → Kakao)은 더 이상 쓰지 않습니다.
 - LINE 채널이 **Developing(개발 중)** 상태면 채널 관리자·테스터만 로그인할 수 있습니다. 지인이 로그인하려면 채널을 **Published**로 바꿉니다.
+- 카카오 JavaScript 키(11.27 추가): 휴대폰에서 "카카오로 시작하기"를 눌렀을 때 **카카오톡 앱으로 넘어가** 입력 없이 로그인되게 하는 값입니다. 서버가 카카오 주소로 바로 보내는 방식(REST API)은 카카오톡 앱을 열어 주지 않아 아이디·비밀번호 입력 화면이 나옵니다. 키를 넣으면 로그인 화면이 카카오 스크립트(JavaScript SDK)로 로그인을 시작하고, 키가 없거나 스크립트를 못 불러오면 예전 방식으로 돌아갑니다. `NEXT_PUBLIC_`으로 시작하는 값은 **빌드할 때** 들어가므로 넣은 뒤 꼭 다시 배포합니다. 문제가 생기면 이 값을 지우고 다시 배포하면 예전 방식으로 돌아갑니다 — `components/auth/KakaoLoginButton.tsx`, `app/auth/kakao/prepare/route.ts`
 - 카카오는 앱이 **서비스 중** 상태가 아니면 팀원만 로그인할 수 있습니다.
 
 ## 5. 배포 후 확인 (순서대로)
