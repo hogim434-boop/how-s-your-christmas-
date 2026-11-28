@@ -135,13 +135,15 @@ export default function VillageView({ id, options, village: realVillage, level, 
   const [devLevel, setDevLevel] = useState(village.level);
   const [treeViewState, setTreeViewState] = useState(options.tree);
   // 진짜 마을의 진행 숫자: "지금까지 한 일의 개수"(편지 수). 편지를 쓰거나 지울 때마다 다시 읽어 옵니다.
-  // 써야 할 개수(required)는 주민 수로 정해지고, 진행률(%)과 장식 단계는 이 둘로 계산합니다 (lib/decor/progress.ts)
+  // 써야 할 개수(required)는 "정원과 주민 수 중 큰 쪽"으로 정해지고, 진행률(%)과 장식 단계는 이 둘로 계산합니다 (lib/decor/progress.ts)
   const [doneCount, setDoneCount] = useState(village.doneCount);
   // 주민 수: 처음에는 화면에 그린 주민 수이고, 진행 숫자를 다시 읽을 때 서버 값으로 맞춥니다.
   // (화면을 열어 둔 사이에 새 주민이 들어오면 써야 할 편지 수가 늘어나므로, 옛 주민 수로 계산하면 진행률이 실제보다 높게 나옵니다)
   const [liveResidentCount, setLiveResidentCount] = useState(village.residents.length);
   const residentCount = Math.max(liveResidentCount, village.residents.length);
-  const required = requiredCount(village.kind, residentCount);
+  // 정원: 주민이 정원을 넘으면 데이터베이스가 정원을 올리므로, 진행 숫자를 다시 읽을 때 함께 맞춥니다
+  const [liveCapacity, setLiveCapacity] = useState(village.capacity);
+  const required = requiredCount(village.kind, residentCount, Math.max(liveCapacity, village.capacity));
   // 장식 단계: 진짜 마을은 지금 진행률로 계산, 연습용 마을(과 ?dev 슬라이더)은 화면 안의 값
   const decorLevel = level ?? (realVillage && !options.dev ? computeDecorLevel(doneCount, required) : devLevel);
   // 진행률(%): 진짜 마을은 편지 수로 계산, 연습용 마을은 장식 단계 × 10
@@ -350,6 +352,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
     if (!next) return;
     setDoneCount(next.doneCount);
     setLiveResidentCount(next.residentCount);
+    setLiveCapacity(next.capacity);
     // 새 주민이 들어와 있으면: 서버에서 마을 정보를 다시 받아 새 집을 그립니다 (화면 전체 새로고침 없이)
     if (next.residentCount > shownResidentCount) router.refresh();
   }, [village.id, shownResidentCount, router]);
