@@ -1,6 +1,6 @@
 // 마을 목록 창에 보여 줄 "내 마을 목록"을 만드는 규칙입니다. (F017 마을 목록·전환, 로드맵 Task 017)
 //
-// 데이터베이스(my_villages 함수)는 마을마다 "주민 수"와 "쓴 개수"만 알려 줍니다.
+// 데이터베이스(my_villages 함수)는 마을마다 "주민 수"·"정원"·"쓴 개수"만 알려 줍니다.
 // 진행률(%)과 장식 단계는 여기서 계산합니다. 계산식은 마을 화면과 같은 것(lib/decor/progress.ts)을 씁니다.
 
 import { computeDecorLevel, progressPercent, requiredCount } from "@/lib/decor/progress";
@@ -13,6 +13,8 @@ export type MyVillageRow = {
   /** 'friends' 또는 'couple'. 모르는 값이 오면 친구 마을로 봅니다 */
   kind: string;
   resident_count: number;
+  /** 정원(목표 인원). 진행률의 기준 인원 = 정원과 주민 수 중 큰 쪽 */
+  capacity: number;
   /** 쓴 개수 (삭제되지 않은 편지 수, 커플 마을이면 질문지 답 수 포함) */
   done_count: number;
   /** 이 마을에서 쓰는 내 이름 */
@@ -25,6 +27,8 @@ export type VillageListItem = {
   name: string;
   kind: VillageKind;
   residentCount: number;
+  /** 정원(목표 인원). 주민 수보다 작게 보이지 않도록 맞춘 값 */
+  capacity: number;
   /** 진행률 0~100 */
   percent: number;
   /** 장식 단계 0~10 (마을 그림에 씁니다) */
@@ -43,12 +47,14 @@ export type VillageListItem = {
 export function toVillageList(rows: MyVillageRow[], currentId: string | null): VillageListItem[] {
   const items = rows.map((row): VillageListItem => {
     const kind: VillageKind = row.kind === "couple" ? "couple" : "friends";
-    const required = requiredCount(kind, row.resident_count);
+    const residentCount = Math.max(0, Math.floor(row.resident_count));
+    const required = requiredCount(kind, row.resident_count, row.capacity);
     return {
       id: row.id,
       name: row.name,
       kind,
-      residentCount: Math.max(0, Math.floor(row.resident_count)),
+      residentCount,
+      capacity: Math.max(residentCount, Math.floor(row.capacity) || 0),
       percent: progressPercent(row.done_count, required),
       level: computeDecorLevel(row.done_count, required),
       myNickname: row.my_nickname ?? "",

@@ -6,6 +6,7 @@ const row = (over: Partial<MyVillageRow>): MyVillageRow => ({
   name: "마을",
   kind: "friends",
   resident_count: 3,
+  capacity: 3,
   done_count: 0,
   my_nickname: "나",
   ...over,
@@ -17,6 +18,16 @@ describe("toVillageList", () => {
     expect(item.percent).toBe(16);
     expect(item.level).toBe(1);
     expect(item.residentCount).toBe(3);
+  });
+
+  it("정원이 주민 수보다 크면 정원 기준으로 계산하고, 정원을 함께 돌려준다", () => {
+    // 정원 5명: 써야 할 편지 20통. 주민 2명이 2통 → 10%, 1단계
+    const [item] = toVillageList([row({ resident_count: 2, capacity: 5, done_count: 2 })], null);
+    expect(item).toMatchObject({ percent: 10, level: 1, residentCount: 2, capacity: 5 });
+  });
+
+  it("정원 값이 주민 수보다 작게 오면 주민 수로 맞춰 보여 준다", () => {
+    expect(toVillageList([row({ resident_count: 4, capacity: 3 })], null)[0].capacity).toBe(4);
   });
 
   it("혼자인 마을은 0%", () => {
