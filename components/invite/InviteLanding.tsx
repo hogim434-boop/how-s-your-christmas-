@@ -14,6 +14,7 @@ import { useMessages } from "@/i18n/LocaleContext";
 import { initialNickname, validateNickname } from "@/lib/village/nickname";
 import { UI_COLORS } from "@/lib/village/theme";
 import type { InviteError } from "@/lib/village/join";
+import { VILLAGE_CAPACITY_MAX } from "@/lib/villages/rules";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
 
 interface InviteLandingProps {
@@ -76,11 +77,16 @@ export function InviteLanding({ code, villageName, loggedIn, defaultNickname = "
       {/* 입주하려다 실패해서 돌아온 경우의 안내 (화면 읽기 도구가 바로 읽어 주도록 role="alert") */}
       {error && (
         <p role="alert" className="text-sm font-semibold" style={{ color: UI_COLORS.accent }}>
-          {error === "couple_full" ? t.inviteCoupleFull : t.inviteJoinFailed}
+          {error === "couple_full"
+            ? t.inviteCoupleFull
+            : error === "village_full"
+              ? t.inviteVillageFull.replace("{max}", String(VILLAGE_CAPACITY_MAX))
+              : t.inviteJoinFailed}
         </p>
       )}
       {/* 가득 찬 마을에는 들어갈 수 없으므로 버튼을 보여 주지 않습니다 */}
       {error !== "couple_full" &&
+        error !== "village_full" &&
         (loggedIn ? (
           // 💡 method="get": 버튼을 누르면 입력칸의 값이 주소 뒤(?nickname=값)에 붙어 입주 주소로 갑니다
           <form action={joinHref} method="get" className="mt-3 flex w-full flex-col gap-3">
