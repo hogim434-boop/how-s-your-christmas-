@@ -12,6 +12,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { modelUrl, type ModelPack } from "./Kit";
 import { markShowThrough } from "./showThrough";
+import { useInstancedReveal } from "./reveal";
 
 interface InstancedKitProps {
   /** 모델 이름 (확장자 제외) */
@@ -22,9 +23,23 @@ interface InstancedKitProps {
   matrices: THREE.Matrix4[];
   /** true면 반투명해진 집 뒤에서도 또렷하게 보이게 합니다 (우체통 장식용, showThrough.ts) */
   showThrough?: boolean;
+  /** 새로 생길 때의 등장 연출 (없으면 연출하지 않습니다) */
+  reveal?: InstancedKitReveal;
 }
 
-export function InstancedKit({ name, pack = "kenney", matrices, showThrough = false }: InstancedKitProps) {
+/**
+ * 등장 연출 설정. j번째 조각은 (j × every + offset) × step 초 뒤에 나타납니다.
+ * stage: 생기는 단계 / sparkle: 나타날 때 터지는 반짝임 크기(0이면 없음)
+ */
+export interface InstancedKitReveal {
+  stage: number;
+  step: number;
+  every: number;
+  offset: number;
+  sparkle: number;
+}
+
+export function InstancedKit({ name, pack = "kenney", matrices, showThrough = false, reveal }: InstancedKitProps) {
   const { scene } = useGLTF(modelUrl(pack, name));
 
   // 모델 안의 부품마다 "모양·재질"을 꺼내 둡니다 (부품의 위치·회전은 모양에 미리 적용)
@@ -54,6 +69,9 @@ export function InstancedKit({ name, pack = "kenney", matrices, showThrough = fa
           material={part.material}
           matrices={matrices}
           showThrough={showThrough}
+          reveal={reveal}
+          // 모델이 여러 부품이어도 반짝임은 한 번만 터지게, 첫 부품만 맡습니다
+          sparkle={i === 0}
         />
       ))}
     </group>
@@ -65,9 +83,11 @@ interface InstancedPartProps {
   material: THREE.Material;
   matrices: THREE.Matrix4[];
   showThrough: boolean;
+  reveal?: InstancedKitReveal;
+  sparkle: boolean;
 }
 
-function InstancedPart({ geometry, material, matrices, showThrough }: InstancedPartProps) {
+function InstancedPart({ geometry, material, matrices, showThrough, reveal, sparkle }: InstancedPartProps) {
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -79,6 +99,15 @@ function InstancedPart({ geometry, material, matrices, showThrough }: InstancedP
     mesh.computeBoundingSphere();
     if (showThrough) markShowThrough(mesh);
   }, [matrices, showThrough]);
+  // reveal이 없으면 99단계 = 연출 없음
+  const step = reveal?.step ?? 0;
+  const every = reveal?.every ?? 1;
+  const offset = reveal?.offset ?? 0;
+  useInstancedReveal(ref, {
+    stage: reveal?.stage ?? 99,
+    delayOf: (j) => (j * every + offset) * step,
+    sparkle: sparkle ? (reveal?.sparkle ?? 0) : 0,
+  });
 
   return <instancedMesh ref={ref} args={[geometry, material, matrices.length]} />;
 }
