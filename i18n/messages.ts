@@ -31,6 +31,10 @@ export type Messages = {
   untilChristmas: string;
   /** 화면 읽기 도구용: 진행률 */
   progressAria: string;
+  /** 진행률 게이지 (F008): 제목 / 안내 한 줄 / 잠긴 단계 표시 */
+  gaugeTitle: string;
+  gaugeHint: string;
+  gaugeLocked: string;
   /** 걷기 안내 */
   tapHint: string;
   /** 트리 전체 보기 / 마을로 돌아가기 버튼 */
@@ -64,6 +68,12 @@ export type Messages = {
   appComingSoon: string;
   /** 개발용 단계 슬라이더 이름 (?dev일 때만 보임) */
   devLevel: string;
+  /** 장식 단계가 올라갔을 때 뜨는 안내 카드의 제목. {n} 자리에 진행률 숫자가 들어갑니다 */
+  decorLevelUpTitle: string;
+  /** 안내 카드에서 새 장식 이름 앞에 붙는 말 */
+  decorNewLabel: string;
+  /** 단계마다 새로 생기는 장식 이름 (첫 번째 = 10%, 열 번째 = 100%). 순서는 lib/decor/decorTable.ts의 DECOR_STAGES와 같습니다 */
+  decorNames: readonly string[];
   /** 편지 쓰기 창 (F004·F006). {name} 자리에 이름, {max} 자리에 글자 수 제한 */
   letterTo: string;
   letterFrom: string;
@@ -110,16 +120,25 @@ export type Messages = {
   letterDeleted: string;
   cancel: string;
   /** 캐릭터 꾸미기 창 (F016): 부위 6가지 이름 */
-  partHair: string;
   partTop: string;
   partBottom: string;
-  partHat: string;
   partScarf: string;
   partGloves: string;
+  partShoes: string;
   partNone: string;
   customizeConfirm: string;
   customizeSaved: string;
-  customizeComingSoon: string;
+  /** 꾸미기: 캐릭터 고르기 (여자·남자) */
+  characterBase: string;
+  baseGirl: string;
+  baseBoy: string;
+  /** 꾸미기: 모양·색 고르기 묶음 이름 */
+  partShape: string;
+  partColor: string;
+  /** 옷 모양 이름 (모양 키 → 이름. 키는 lib/character/parts.ts의 PART_SHAPES) */
+  shapeNames: Record<string, string>;
+  /** 색 이름 (색 키 → 이름. 키는 lib/character/parts.ts의 PART_COLORS) */
+  colorNames: Record<string, string>;
   /** 로그인 화면 (F010·F012) */
   loginWithLine: string;
   loginWithKakao: string;
@@ -190,10 +209,6 @@ export type Messages = {
   /** 마을 만들기: 정원(목표 인원) 고르기 */
   villageCapacityLabel: string;
   villageCapacityUnit: string;
-  /** 아직 고르지 않았을 때의 안내 ({min}~{max}) */
-  villageCapacityEmptyHint: string;
-  /** 고른 뒤의 안내 ({n} = 정원, {total} = 모여야 하는 편지 수) */
-  villageCapacityHint: string;
   /** 정원은 줄일 수 없다는 경고 */
   villageCapacityWarning: string;
   villageCapacityMinus: string;
@@ -232,6 +247,9 @@ const messages = {
     ddayDone: "D-Day",
     untilChristmas: "クリスマスまで",
     progressAria: "進行度",
+    gaugeTitle: "飾りの進みぐあい",
+    gaugeHint: "集めた飾りを押すと、村で光ります",
+    gaugeLocked: "まだ",
     tapHint: "地面をタップすると歩きます",
     treeView: "ツリー全体を見る",
     treeShort: "ツリー",
@@ -253,6 +271,20 @@ const messages = {
     language: "言語",
     appComingSoon: "アプリは近日公開予定です",
     devLevel: "飾りの段階",
+    decorLevelUpTitle: "{n}% 達成！",
+    decorNewLabel: "新しい飾り",
+    decorNames: [
+      "街灯のライト",
+      "赤いボール・緑のボール",
+      "ツリーのライト",
+      "サンタの靴下・キャンディケイン・黄色いベル",
+      "おうちの飾り・屋根のライト",
+      "雪の結晶・クッキー",
+      "ルドルフのそり",
+      "オーナメントがグレードアップ",
+      "金色のライト",
+      "大きな星と花火",
+    ],
     letterTo: "{name}さんへ",
     letterFrom: "{name}より",
     letterInputPlaceholder: "伝えたい気持ちを書いてください",
@@ -288,16 +320,47 @@ const messages = {
     letterDeleteConfirm: "この手紙を削除しますか?",
     letterDeleted: "手紙を削除しました",
     cancel: "キャンセル",
-    partHair: "髪",
     partTop: "トップス",
     partBottom: "ボトムス",
-    partHat: "帽子",
     partScarf: "マフラー",
     partGloves: "手袋",
+    partShoes: "くつ",
     partNone: "なし",
     customizeConfirm: "これにする",
     customizeSaved: "着せ替えを保存しました",
-    customizeComingSoon: "見た目は準備中です。選んだ内容は保存されます",
+    characterBase: "キャラクター",
+    baseGirl: "女の子",
+    baseBoy: "男の子",
+    partShape: "かたち",
+    partColor: "いろ",
+    shapeNames: {
+      cardigan: "カーディガン",
+      sweater: "ニットセーター",
+      puffer: "ダウンジャケット",
+      hoodie: "パーカー",
+      santa: "サンタ服",
+      skirt: "プリーツスカート",
+      shorts: "ショートパンツ",
+      pants: "ロングパンツ",
+      mitten: "ミトン",
+      knit: "ニット手袋",
+      muffler: "マフラー",
+      loafer: "ローファー",
+      boots: "ファーブーツ",
+      sneaker: "スニーカー",
+    },
+    colorNames: {
+      red: "赤",
+      pink: "ピンク",
+      yellow: "黄色",
+      green: "緑",
+      sky: "水色",
+      navy: "紺",
+      purple: "紫",
+      brown: "茶色",
+      cream: "クリーム",
+      black: "黒",
+    },
     loginWithLine: "LINEではじめる",
     loginWithKakao: "カカオではじめる",
     invitedTo: "「{name}」に招待されました",
@@ -352,8 +415,6 @@ const messages = {
     kindCoupleDesc: "ふたりだけの村です。質問と手紙でツリーを飾ります",
     villageCapacityLabel: "定員",
     villageCapacityUnit: "人",
-    villageCapacityEmptyHint: "一緒に過ごす人数を{min}〜{max}人で決めてください",
-    villageCapacityHint: "{n}人がお互いに1通ずつ、手紙が{total}通集まるとツリーが完成します",
     villageCapacityWarning: "定員は一度決めると減らせません。定員がそろわないとツリーを完成させにくいので、実際に集まる人数で決めてください。定員より多くの友だちが入ると、定員は自動で増えます。",
     villageCapacityMinus: "1人減らす",
     villageCapacityPlus: "1人増やす",
@@ -385,6 +446,9 @@ const messages = {
     ddayDone: "D-Day",
     untilChristmas: "크리스마스까지",
     progressAria: "진행률",
+    gaugeTitle: "장식 모으기",
+    gaugeHint: "모은 장식을 누르면 마을에서 반짝여요",
+    gaugeLocked: "아직",
     tapHint: "땅을 누르면 걸어가요",
     treeView: "트리 전체 보기",
     treeShort: "트리",
@@ -406,6 +470,20 @@ const messages = {
     language: "언어",
     appComingSoon: "앱 출시 coming soon",
     devLevel: "장식 단계",
+    decorLevelUpTitle: "{n}% 달성!",
+    decorNewLabel: "새 장식",
+    decorNames: [
+      "가로등 전구 줄",
+      "빨간 방울 · 초록 방울",
+      "트리 전구 줄",
+      "산타 양말 · 지팡이 사탕 · 노란 종",
+      "집 장식 · 지붕 전구 줄",
+      "눈송이 · 쿠키",
+      "루돌프 썰매",
+      "오너먼트 업그레이드",
+      "금빛 전구 줄",
+      "대왕별과 폭죽",
+    ],
     letterTo: "{name}님께",
     letterFrom: "{name} 드림",
     letterInputPlaceholder: "전하고 싶은 마음을 적어 보세요",
@@ -441,16 +519,47 @@ const messages = {
     letterDeleteConfirm: "이 편지를 지울까요?",
     letterDeleted: "편지를 지웠어요",
     cancel: "취소",
-    partHair: "머리카락",
     partTop: "상의",
     partBottom: "하의",
-    partHat: "모자",
     partScarf: "목도리",
     partGloves: "장갑",
+    partShoes: "신발",
     partNone: "없음",
     customizeConfirm: "확인",
     customizeSaved: "꾸미기를 저장했어요",
-    customizeComingSoon: "모양은 준비 중이에요. 고른 내용은 저장돼요",
+    characterBase: "캐릭터",
+    baseGirl: "여자",
+    baseBoy: "남자",
+    partShape: "모양",
+    partColor: "색",
+    shapeNames: {
+      cardigan: "가디건",
+      sweater: "니트 스웨터",
+      puffer: "패딩 점퍼",
+      hoodie: "후드티",
+      santa: "산타 옷",
+      skirt: "주름치마",
+      shorts: "반바지",
+      pants: "긴바지",
+      mitten: "털 벙어리장갑",
+      knit: "니트 장갑",
+      muffler: "목도리",
+      loafer: "구두",
+      boots: "털 부츠",
+      sneaker: "운동화",
+    },
+    colorNames: {
+      red: "빨강",
+      pink: "분홍",
+      yellow: "노랑",
+      green: "초록",
+      sky: "하늘",
+      navy: "남색",
+      purple: "보라",
+      brown: "갈색",
+      cream: "크림",
+      black: "검정",
+    },
     loginWithLine: "LINE으로 시작하기",
     loginWithKakao: "카카오로 시작하기",
     invitedTo: "\"{name}\"에 초대받았어요",
@@ -505,8 +614,6 @@ const messages = {
     kindCoupleDesc: "둘만의 마을. 질문과 편지로 트리를 꾸며요",
     villageCapacityLabel: "정원",
     villageCapacityUnit: "명",
-    villageCapacityEmptyHint: "함께할 인원을 {min}~{max}명 사이에서 정해 주세요",
-    villageCapacityHint: "{n}명이 서로에게 한 통씩, 편지 {total}통이 모이면 트리가 완성돼요",
     villageCapacityWarning: "정원은 한 번 정하면 줄일 수 없어요. 정원이 다 모이지 않으면 트리를 완성하기 어려우니, 실제로 함께할 인원으로 정해 주세요. 정원보다 많은 친구가 들어오면 정원은 자동으로 늘어나요.",
     villageCapacityMinus: "한 명 줄이기",
     villageCapacityPlus: "한 명 늘리기",
