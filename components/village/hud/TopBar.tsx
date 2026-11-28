@@ -1,7 +1,7 @@
 "use client";
 
 // 화면 맨 위 정보 줄: 왼쪽에 마을 이름·D-day, 오른쪽에 진행률 알약입니다.
-// 글자만 있어서 터치를 막지 않도록 pointer-events-none을 줍니다.
+// 글자는 터치를 막지 않도록 pointer-events-none을 주고, 진행률 알약만 누를 수 있습니다.
 
 import { UI_COLORS } from "@/lib/village/theme";
 
@@ -14,11 +14,13 @@ interface TopBarProps {
   /** 진행률(0~100) */
   percent: number;
   progressAria: string;
+  /** 진행률 알약을 눌렀을 때 (단계별 장식을 보여 주는 게이지 창 열기, F008) */
+  onOpenGauge: () => void;
   /** 밤 모드면 글자를 밝은 색으로 (어두운 하늘에서도 읽히게) */
   night?: boolean;
 }
 
-export function TopBar({ villageName, ddayText, ddayCaption, percent, progressAria, night = false }: TopBarProps) {
+export function TopBar({ villageName, ddayText, ddayCaption, percent, progressAria, onOpenGauge, night = false }: TopBarProps) {
   return (
     <header
       className="pointer-events-none flex items-start justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top)+12px)]"
@@ -35,11 +37,13 @@ export function TopBar({ villageName, ddayText, ddayCaption, percent, progressAr
         <p className="text-4xl font-bold tracking-tight">{ddayText}</p>
         {ddayCaption && <p className="text-xs opacity-90">{ddayCaption}</p>}
       </div>
-      {/* 진행률: 흰 알약 안에 가는 막대와 숫자 */}
-      <div
-        role="status"
+      {/* 진행률: 흰 알약 안에 가는 막대와 숫자. 누르면 단계별 장식을 보여 주는 창이 뜹니다 (F008) */}
+      {/* pointer-events-auto: 위쪽 줄 전체는 터치를 통과시키지만, 이 버튼만은 누를 수 있게 합니다 */}
+      <button
+        type="button"
+        onClick={onOpenGauge}
         aria-label={`${progressAria} ${percent}%`}
-        className="flex h-10 shrink-0 items-center gap-2.5 rounded-full bg-white px-4 shadow-[0_4px_16px_rgba(20,26,54,0.18)]"
+        className="pointer-events-auto flex h-11 shrink-0 items-center gap-2.5 rounded-full bg-white px-4 shadow-[0_4px_16px_rgba(20,26,54,0.18)] transition-transform active:scale-95"
         style={{ color: UI_COLORS.navy }}
       >
         <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-[#e6e8f0]" aria-hidden="true">
@@ -49,7 +53,7 @@ export function TopBar({ villageName, ddayText, ddayCaption, percent, progressAr
           />
         </span>
         <span className="text-sm font-bold tabular-nums">{percent}%</span>
-      </div>
+      </button>
     </header>
   );
 }
