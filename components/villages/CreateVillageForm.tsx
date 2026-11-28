@@ -22,7 +22,6 @@ import { copyText, inviteUrl } from "@/lib/village/invite";
 import { initialNickname, validateNickname } from "@/lib/village/nickname";
 import { UI_COLORS } from "@/lib/village/theme";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
-import { requiredCount } from "@/lib/decor/progress";
 import {
   availableVillageKinds,
   clampCapacity,
@@ -149,7 +148,8 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
   // ── 1) 만들기 전: 이름과 종류 입력 ──
   return (
     <form
-      className="flex w-full max-w-sm flex-col gap-5 rounded-[28px] p-6 shadow-[0_12px_48px_rgba(20,26,54,0.14)]"
+      // 간격을 촘촘하게 잡아 휴대폰 한 화면에 다 들어오게 합니다 (11.28 사용자 요청)
+      className="flex w-full max-w-sm flex-col gap-3 rounded-[28px] p-5 shadow-[0_12px_48px_rgba(20,26,54,0.14)]"
       style={cardStyle}
       onSubmit={(e) => {
         // 기본 동작(페이지 새로고침)을 막습니다
@@ -157,12 +157,18 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
         void handleSubmit();
       }}
     >
-      <h1 className="text-[22px] font-bold tracking-tight">{t.createVillageTitle}</h1>
+      <h1 className="text-xl font-bold tracking-tight">{t.createVillageTitle}</h1>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="village-name" className="text-sm font-semibold">
-          {t.villageNameLabel}
-        </label>
+      <div className="flex flex-col gap-1.5">
+        {/* 글자 수는 이름표 줄 오른쪽에 둡니다 (줄 하나를 아낌) */}
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor="village-name" className="text-sm font-semibold">
+            {t.villageNameLabel}
+          </label>
+          <p className="shrink-0 text-xs tabular-nums" style={{ color: check === "tooLong" ? UI_COLORS.accent : UI_COLORS.muted }}>
+            {[...name.trim()].length} / {VILLAGE_NAME_MAX}
+          </p>
+        </div>
         <input
           id="village-name"
           type="text"
@@ -171,24 +177,20 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
           placeholder={t.villageNamePlaceholder}
           autoComplete="off"
           // text-base(16px): 아이폰이 입력할 때 화면을 확대하지 않는 최소 글자 크기
-          className="h-13 w-full rounded-2xl border border-transparent px-4 text-base outline-none transition-colors placeholder:text-[#a9aec0] focus:border-[#232b52]/30"
+          className="h-12 w-full rounded-2xl border border-transparent px-4 text-base outline-none transition-colors placeholder:text-[#a9aec0] focus:border-[#232b52]/30"
           style={{ backgroundColor: UI_COLORS.surface }}
         />
-        <div className="flex justify-between gap-3 text-xs">
-          <p role="status" className="font-semibold" style={{ color: UI_COLORS.accent }}>
-            {check === "tooLong" ? t.villageNameTooLong.replace("{max}", String(VILLAGE_NAME_MAX)) : ""}
-          </p>
-          <p className="shrink-0 tabular-nums" style={{ color: check === "tooLong" ? UI_COLORS.accent : UI_COLORS.muted }}>
-            {[...name.trim()].length} / {VILLAGE_NAME_MAX}
-          </p>
-        </div>
+        {/* 안내는 있을 때만 자리를 차지합니다 */}
+        <p role="status" className="text-xs font-semibold empty:hidden" style={{ color: UI_COLORS.accent }}>
+          {check === "tooLong" ? t.villageNameTooLong.replace("{max}", String(VILLAGE_NAME_MAX)) : ""}
+        </p>
       </div>
 
-      <NicknameField id="creator-nickname" value={nickname} onChange={setNickname} />
+      <NicknameField id="creator-nickname" value={nickname} onChange={setNickname} compact />
 
       {/* 마을 종류: 커플 선택지가 꺼져 있으면(친구 마을 하나뿐이면) 고르기 자체를 숨깁니다 */}
       {kinds.length > 1 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold">{t.villageKindLabel}</p>
           <SegmentedControl
             ariaLabel={t.villageKindLabel}
@@ -196,7 +198,7 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
             onChange={setKind}
             options={kinds.map((k) => ({ value: k, label: kindNames[k] }))}
           />
-          <p className="min-h-8 px-1 text-xs" style={{ color: UI_COLORS.muted }}>
+          <p className="px-1 text-xs" style={{ color: UI_COLORS.muted }}>
             {kindDescs[kind]}
           </p>
         </div>
@@ -205,65 +207,64 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
       {/* 정원(목표 인원): 친구 마을만. 커플 마을은 언제나 2명입니다 */}
       {needsCapacity && (
         <div className="flex flex-col gap-2">
-          <label htmlFor="village-capacity" className="text-sm font-semibold">
-            {t.villageCapacityLabel}
-          </label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => stepCapacity(-1)}
-              disabled={capacity !== null && capacity <= VILLAGE_CAPACITY_MIN}
-              aria-label={t.villageCapacityMinus}
-              className="flex size-13 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
-              style={{ backgroundColor: UI_COLORS.surface }}
-            >
-              <Minus className="size-5" aria-hidden="true" />
-            </button>
-            <div className="flex h-13 min-w-0 flex-1 items-center justify-center gap-1 rounded-2xl px-4" style={{ backgroundColor: UI_COLORS.surface }}>
-              <input
-                id="village-capacity"
-                type="text"
-                // 💡 inputMode="numeric": 휴대폰에서 숫자 자판이 뜨게 합니다
-                inputMode="numeric"
-                value={capacityText}
-                // 숫자가 아닌 글자는 받지 않고, 두 자리까지만 받습니다
-                onChange={(e) => setCapacityText(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                // 입력칸을 벗어날 때 범위 밖의 숫자(예: 2, 99)를 범위 안으로 맞춥니다
-                onBlur={() => capacity !== null && setCapacityText(String(clampCapacity(capacity)))}
-                placeholder={`${VILLAGE_CAPACITY_MIN}~${VILLAGE_CAPACITY_MAX}`}
-                autoComplete="off"
-                aria-describedby="village-capacity-hint village-capacity-warning"
-                className="w-14 bg-transparent text-center text-base font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[#a9aec0]"
-              />
-              <span className="text-sm" style={{ color: UI_COLORS.muted }}>
-                {t.villageCapacityUnit}
-              </span>
+          {/* 이름표와 −/숫자/＋를 한 줄에 둡니다 (줄 하나를 아낌) */}
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="village-capacity" className="text-sm font-semibold">
+              {t.villageCapacityLabel}
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => stepCapacity(-1)}
+                disabled={capacity !== null && capacity <= VILLAGE_CAPACITY_MIN}
+                aria-label={t.villageCapacityMinus}
+                className="flex size-11 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
+                style={{ backgroundColor: UI_COLORS.surface }}
+              >
+                <Minus className="size-5" aria-hidden="true" />
+              </button>
+              <div className="flex h-11 w-28 items-center justify-center gap-1 rounded-2xl px-3" style={{ backgroundColor: UI_COLORS.surface }}>
+                <input
+                  id="village-capacity"
+                  type="text"
+                  // 💡 inputMode="numeric": 휴대폰에서 숫자 자판이 뜨게 합니다
+                  inputMode="numeric"
+                  value={capacityText}
+                  // 숫자가 아닌 글자는 받지 않고, 두 자리까지만 받습니다
+                  onChange={(e) => setCapacityText(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  // 입력칸을 벗어날 때 범위 밖의 숫자(예: 2, 99)를 범위 안으로 맞춥니다
+                  onBlur={() => capacity !== null && setCapacityText(String(clampCapacity(capacity)))}
+                  placeholder={`${VILLAGE_CAPACITY_MIN}~${VILLAGE_CAPACITY_MAX}`}
+                  autoComplete="off"
+                  aria-describedby="village-capacity-warning"
+                  className="w-12 bg-transparent text-center text-base font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[#a9aec0]"
+                />
+                <span className="text-sm" style={{ color: UI_COLORS.muted }}>
+                  {t.villageCapacityUnit}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => stepCapacity(1)}
+                disabled={capacity !== null && capacity >= VILLAGE_CAPACITY_MAX}
+                aria-label={t.villageCapacityPlus}
+                className="flex size-11 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
+                style={{ backgroundColor: UI_COLORS.surface }}
+              >
+                <Plus className="size-5" aria-hidden="true" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => stepCapacity(1)}
-              disabled={capacity !== null && capacity >= VILLAGE_CAPACITY_MAX}
-              aria-label={t.villageCapacityPlus}
-              className="flex size-13 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
-              style={{ backgroundColor: UI_COLORS.surface }}
-            >
-              <Plus className="size-5" aria-hidden="true" />
-            </button>
           </div>
-          {/* 고른 정원이면 편지가 몇 통 모여야 하는지 바로 알려 줍니다 (계산식은 진행률과 같은 것) */}
-          <p id="village-capacity-hint" role="status" className="min-h-8 px-1 text-xs" style={{ color: UI_COLORS.muted }}>
-            {capacityOk && capacity !== null
-              ? t.villageCapacityHint.replace("{n}", String(capacity)).replace("{total}", String(requiredCount("friends", 0, capacity)))
-              : t.villageCapacityEmptyHint.replace("{min}", String(VILLAGE_CAPACITY_MIN)).replace("{max}", String(VILLAGE_CAPACITY_MAX))}
-          </p>
-          {/* 경고: 정원은 나중에 줄일 수 없습니다 */}
+          {/* 경고: 정원은 나중에 줄일 수 없습니다.
+              💡 break-keep: 한국어는 낱말 중간("않/으면")에서 줄이 바뀌지 않게 합니다.
+                 일본어는 띄어쓰기가 없어 이 설정을 쓰면 줄이 넘치므로, 한국어 화면(:lang(ko))에만 적용합니다. */}
           <p
             id="village-capacity-warning"
-            className="flex gap-2 rounded-2xl px-3.5 py-3 text-xs leading-relaxed"
+            className="flex gap-2 rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed"
             style={{ backgroundColor: `${UI_COLORS.accent}14`, color: UI_COLORS.navy }}
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0" style={{ color: UI_COLORS.accent }} aria-hidden="true" />
-            <span>{t.villageCapacityWarning}</span>
+            <span className="text-pretty [&:lang(ko)]:break-keep">{t.villageCapacityWarning}</span>
           </p>
         </div>
       )}
@@ -283,7 +284,7 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
       )}
       {/* 이미 마을이 있는 사람: 만들지 않고 원래 마을로 돌아가기 (마을 목록에서 들어온 경우, Task 017) */}
       {backHref && (
-        <Link href={backHref} className="flex min-h-11 items-center justify-center text-sm font-semibold" style={{ color: UI_COLORS.muted }}>
+        <Link href={backHref} className="-my-1 flex min-h-11 items-center justify-center text-sm font-semibold" style={{ color: UI_COLORS.muted }}>
           {t.villageBack}
         </Link>
       )}
