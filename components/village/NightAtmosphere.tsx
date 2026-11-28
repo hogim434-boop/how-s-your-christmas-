@@ -18,7 +18,7 @@
 //  - 진짜 불빛은 하나도 쓰지 않습니다. 트리 앞 불빛도 가짜 빛으로 바꿨습니다 (사용자 요청: 모든 조명은 가짜 빛으로)
 //  - 달빛 그림자는 그림자 지도 크기를 2048 → 1024로 줄이고, 집·트리가 바뀔 때만 다시 그립니다 (ShadowFlags.tsx)
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { lampPositions, type HouseSlot } from "@/lib/village/layout";
@@ -39,9 +39,14 @@ interface NightAtmosphereProps {
   villageRadius: number;
   /** 집 자리 (집 앞 불빛 위치) */
   slots: HouseSlot[];
+  /** (x, z) 위치의 땅 높이. 바닥에 비친 빛이 땅의 굴곡을 따라가게 하는 데 씁니다 (안 주면 평평한 땅으로 봅니다: 첫 화면) */
+  heightAt?: (x: number, z: number) => number;
 }
 
-export function NightAtmosphere({ villageRadius, slots }: NightAtmosphereProps) {
+/** 평평한 땅 (높이를 안 줬을 때) */
+const FLAT_GROUND = () => 0;
+
+export function NightAtmosphere({ villageRadius, slots, heightAt = FLAT_GROUND }: NightAtmosphereProps) {
   // 그림자가 마을 전체에 드리우도록 그림자 범위를 마을 크기만큼
   const shadowRange = villageRadius + 4;
 
@@ -68,7 +73,7 @@ export function NightAtmosphere({ villageRadius, slots }: NightAtmosphereProps) 
       />
 
       {/* 가로등 아래·집 앞 눈밭에 비친 따뜻한 빛 (가짜 빛, 한 번에 그림) */}
-      <GroundGlows slots={slots} />
+      <GroundGlows slots={slots} heightAt={heightAt} />
 
       {/* 마을 안에 내리는 눈 (아침과 같은 눈, 밤에는 살짝 푸른빛) */}
       <VillageSnow villageRadius={villageRadius} color="#e8eeff" opacity={0.9} />
@@ -90,48 +95,82 @@ const HOUSE_GLOW = { radius: 2.4 * HOUSE_RATIO, color: "#ffb870" };
 /** 빛 번짐의 진하기 (더하기 방식이라 아래 눈 색에 이만큼 따뜻한 색이 더해집니다) */
 const GLOW_OPACITY = 0.5;
 
-function GroundGlows({ slots }: { slots: HouseSlot[] }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
+/** 빛 번짐 한 장을 이루는 그물의 촘촘함 (둘레 방향 칸 수, 바깥 방향 칸 수) */
+const GLOW_GRID = { around: 32, outward: 10 };
+/** 땅에서 띄우는 높이 (땅과 겹쳐 떨리지 않을 만큼만) */
+const GLOW_LIFT = 0.07;
+/** 광장 돌바닥의 높이 (PlazaFloor). 빛 번짐이 이보다 아래로 내려가지 않게 합니다 */
+const PLAZA_FLOOR_Y = 0.04;
 
-  const glows = useMemo<Glow[]>(() => {
-    const list: Glow[] = [TREE_GLOW, ...LAMPS.map((p) => ({ x: p.x, z: p.z, ...LAMP_GLOW }))];
+function GroundGlows({ slots, heightAt }: { slots: HouseSlot[]; heightAt: (x: number, z: number) => number }) {
+  // 💡 예전에는 평평한 종이 한 장을 높이 0.06에 깔았습니다. 그런데 광장 테두리의 눈 둔덕(높이 0.3)이 그 종이를 가려서
+  //    "둔덕만 어둡고 그 밑에 빛이 깔린" 것처럼 보였습니다. (11.29 사용자 피드백)
+  //    → 빛 번짐을 땅 높이를 따라 굽은 그물로 만들어, 둔덕 위에도 빛이 그대로 비치게 합니다.
+  //    모든 빛 번짐을 한 덩어리로 합쳐 두므로 그리기는 여전히 1번이고, 처음 한 번만 계산합니다.
+  const geometry = useMemo(() => {
+    const glows: Glow[] = [TREE_GLOW, ...LAMPS.map((p) => ({ x: p.x, z: p.z, ...LAMP_GLOW }))];
     for (const s of slots) {
       // 집 앞(광장 쪽)으로 집 크기만큼 떨어진 곳 = 예전 집 앞 불빛 바로 아래
       const front = 1.9 * HOUSE_SCALE;
-      list.push({ x: s.x + Math.sin(s.rotation) * front, z: s.z + Math.cos(s.rotation) * front, ...HOUSE_GLOW });
+      glows.push({ x: s.x + Math.sin(s.rotation) * front, z: s.z + Math.cos(s.rotation) * front, ...HOUSE_GLOW });
     }
-    return list;
-  }, [slots]);
-
-  // 각 빛 번짐의 자리·크기·색을 한 번만 적어 둡니다 (매 장면 계산 없음)
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const m = new THREE.Matrix4();
-    const flat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+    const { around, outward } = GLOW_GRID;
+    const perGlow = 1 + around * outward; // 가운데 점 1개 + 동심원 위의 점들
+    const positions = new Float32Array(glows.length * perGlow * 3);
+    const uvs = new Float32Array(glows.length * perGlow * 2);
+    const colors = new Float32Array(glows.length * perGlow * 3);
+    const index: number[] = [];
     const color = new THREE.Color();
-    glows.forEach((g, i) => {
-      // 광장(높이 0.04) 위에도 보이게 살짝 띄움
-      m.compose(new THREE.Vector3(g.x, 0.06, g.z), flat, new THREE.Vector3(g.radius * 2, g.radius * 2, 1));
-      mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, color.set(g.color));
+    glows.forEach((g, n) => {
+      const base = n * perGlow;
+      color.set(g.color);
+      const put = (i: number, dx: number, dz: number) => {
+        const x = g.x + dx * g.radius;
+        const z = g.z + dz * g.radius;
+        positions.set([x, Math.max(heightAt(x, z), PLAZA_FLOOR_Y) + GLOW_LIFT, z], (base + i) * 3);
+        // 빛 번짐 그림(가운데가 밝고 가장자리로 사라지는 동그라미)의 어느 자리인지
+        uvs.set([0.5 + dx / 2, 0.5 + dz / 2], (base + i) * 2);
+        colors.set([color.r, color.g, color.b], (base + i) * 3);
+      };
+      put(0, 0, 0);
+      for (let r = 1; r <= outward; r++) {
+        for (let a = 0; a < around; a++) {
+          const angle = (a / around) * Math.PI * 2;
+          put(1 + (r - 1) * around + a, (Math.cos(angle) * r) / outward, (Math.sin(angle) * r) / outward);
+        }
+      }
+      // 점들을 세모로 잇기: 가운데 부채꼴 + 동심원 사이의 띠
+      for (let a = 0; a < around; a++) {
+        const next = (a + 1) % around;
+        index.push(base, base + 1 + next, base + 1 + a);
+        for (let r = 1; r < outward; r++) {
+          const inner = base + 1 + (r - 1) * around;
+          const outer = inner + around;
+          index.push(inner + a, inner + next, outer + next, inner + a, outer + next, outer + a);
+        }
+      }
     });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [glows]);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geo.setIndex(index);
+    return geo;
+  }, [slots, heightAt]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <instancedMesh key={glows.length} ref={ref} args={[undefined, undefined, glows.length]} renderOrder={1}>
-      <planeGeometry args={[1, 1]} />
+    <mesh geometry={geometry} renderOrder={1}>
       <meshBasicMaterial
         map={softDot()}
+        vertexColors
         transparent
         opacity={GLOW_OPACITY}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
         toneMapped={false}
+        side={THREE.DoubleSide}
       />
-    </instancedMesh>
+    </mesh>
   );
 }
