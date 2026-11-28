@@ -6,6 +6,7 @@ describe("parseJoinError", () => {
   it("데이터베이스 오류 글에서 이유를 알아낸다", () => {
     expect(parseJoinError("invalid_invite")).toBe("invalid_invite");
     expect(parseJoinError("couple_full")).toBe("couple_full");
+    expect(parseJoinError("village_full")).toBe("village_full");
     expect(parseJoinError("not_signed_in")).toBe("not_signed_in");
   });
   it("모르는 글·빈 값은 일반 실패", () => {
