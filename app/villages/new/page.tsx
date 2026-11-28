@@ -45,7 +45,7 @@ async function FormContent() {
 export default function NewVillagePage({ searchParams }: PageProps<"/villages/new">) {
   return (
     <main
-      className="flex min-h-dvh w-full flex-col items-center justify-center gap-4 p-5"
+      className="flex min-h-dvh w-full flex-col items-center justify-center gap-3 p-3"
       style={{ backgroundColor: VILLAGE_COLORS.sky }}
     >
       <Suspense fallback={null}>
