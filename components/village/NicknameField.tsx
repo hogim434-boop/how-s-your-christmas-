@@ -14,11 +14,46 @@ interface NicknameFieldProps {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  /** true면 글자 수를 이름표 줄 오른쪽에 두어 높이를 줄입니다 (마을 만들기 화면: 한 화면에 다 들어오게) */
+  compact?: boolean;
 }
 
-export function NicknameField({ id, value, onChange }: NicknameFieldProps) {
+export function NicknameField({ id, value, onChange, compact = false }: NicknameFieldProps) {
   const t = useMessages();
   const check = validateNickname(value);
+  const count = (
+    <p className="shrink-0 text-xs tabular-nums" style={{ color: check === "tooLong" ? UI_COLORS.accent : UI_COLORS.muted }}>
+      {[...value.trim()].length} / {NICKNAME_MAX}
+    </p>
+  );
+  const tooLong = check === "tooLong" ? t.nicknameTooLong.replace("{max}", String(NICKNAME_MAX)) : "";
+  if (compact) {
+    return (
+      <div className="flex w-full flex-col gap-1.5 text-left">
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor={id} className="text-sm font-semibold">
+            {t.nicknameLabel}
+          </label>
+          {count}
+        </div>
+        <input
+          id={id}
+          name="nickname"
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={t.nicknamePlaceholder}
+          autoComplete="off"
+          className="h-12 w-full rounded-2xl border border-transparent px-4 text-base outline-none transition-colors placeholder:text-[#a9aec0] focus:border-[#232b52]/30"
+          style={{ backgroundColor: UI_COLORS.surface }}
+        />
+        {/* 안내는 있을 때만 자리를 차지합니다 */}
+        <p role="status" className="text-xs font-semibold empty:hidden" style={{ color: UI_COLORS.accent }}>
+          {tooLong}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="flex w-full flex-col gap-2 text-left">
       <label htmlFor={id} className="text-sm font-semibold">
