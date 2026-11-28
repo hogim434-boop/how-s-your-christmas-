@@ -341,6 +341,18 @@ export type Database = {
       join_village: { Args: { p_code: string }; Returns: string }
       letter_unlock_time: { Args: never; Returns: string }
       mark_letter_opened: { Args: { p_letter: string }; Returns: undefined }
+      my_villages: {
+        Args: never
+        Returns: {
+          done_count: number
+          id: string
+          joined_at: string
+          kind: string
+          my_nickname: string
+          name: string
+          resident_count: number
+        }[]
+      }
       received_letters_locked: {
         Args: { p_village: string }
         Returns: {
