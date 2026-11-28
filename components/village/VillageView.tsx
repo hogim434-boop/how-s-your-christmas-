@@ -24,6 +24,10 @@ import { BottomBar } from "./hud/BottomBar";
 import { DevLevelBar } from "./hud/DevLevelBar";
 import { FpsMeter } from "./hud/FpsMeter";
 import { MenuSheet } from "./hud/MenuSheet";
+import { VillageListPanel } from "@/components/villages/VillageListPanel";
+import { dummyVillageRows } from "@/lib/dummy/villages";
+import { toVillageList, type MyVillageRow } from "@/lib/villages/list";
+import { fetchMyVillages } from "@/lib/villages/store";
 import { HowToPlay } from "./HowToPlay";
 import NicknameForm from "./NicknameForm";
 import { Toast, type ToastMessage } from "./hud/Toast";
@@ -96,6 +100,8 @@ type OverlayState =
   | { kind: "customize" }
   | { kind: "nickname" }
   | { kind: "menu" }
+  // 마을 목록 (F017): 내가 들어간 마을들을 보고 다른 마을로 이동
+  | { kind: "villages" }
   | { kind: "howto" };
 
 export default function VillageView({ id, options, village: realVillage, level, treeView, notice, liveWalk }: VillageViewProps) {
@@ -263,6 +269,56 @@ export default function VillageView({ id, options, village: realVillage, level, 
   const dday = daysUntilChristmas(now);
 
   const villageName = village.name;
+
+  // ── 마을 목록 (F017, Task 017) ──
+  // 목록은 창을 열 때마다 새로 읽습니다 (다른 사람이 입주하거나 편지를 쓰면 주민 수·진행률이 바뀌기 때문에 기억해 두지 않습니다)
+  const [villageList, setVillageList] = useState<{ status: "loading" | "ready" | "error"; rows: MyVillageRow[] | null }>({
+    status: "loading",
+    rows: null,
+  });
+  // 가장 마지막에 보낸 요청의 번호. 창을 빠르게 여러 번 열었을 때, 늦게 도착한 옛 답이 새 답을 덮어쓰지 않게 합니다
+  const villageRequest = useRef(0);
+  const openVillages = useCallback(() => {
+    setOverlay({ kind: "villages" });
+    if (village.isDemo) {
+      // 연습용 마을: 데이터베이스를 부르지 않고 가짜 목록을 보여 줍니다.
+      // 연습용 마을은 진행률을 "장식 단계 × 10%"로 보여 주므로(화면 위 숫자), 목록의 첫 칸도 같은 값이 나오게 쓴 개수를 거꾸로 계산합니다
+      setVillageList({
+        status: "ready",
+        rows: dummyVillageRows({ id: village.id, name: village.name, residentCount, doneCount: Math.ceil((required * decorLevel) / 10) }),
+      });
+      return;
+    }
+    const request = ++villageRequest.current;
+    setVillageList({ status: "loading", rows: null });
+    void fetchMyVillages().then((rows) => {
+      if (request !== villageRequest.current) return;
+      setVillageList(rows ? { status: "ready", rows } : { status: "error", rows: null });
+    });
+  }, [village.isDemo, village.id, village.name, residentCount, required, decorLevel]);
+  const villageItems = useMemo(
+    () => (villageList.rows ? toVillageList(villageList.rows, village.id) : null),
+    [villageList.rows, village.id],
+  );
+  const selectVillage = useCallback(
+    (villageId: string) => {
+      // 지금 보고 있는 마을을 누르면 창만 닫습니다
+      if (villageId === village.id) {
+        closeOverlay();
+        return;
+      }
+      if (village.isDemo) {
+        showToast(t.villageDemoNotice);
+        return;
+      }
+      // 💡 일부러 "새로 열기"로 이동합니다. 마을이 바뀌면 집·주민·편지·실시간 연결이 모두 달라지는데,
+      //    화면이 기억하고 있는 값(useState)은 부드러운 이동(router.push)으로는 새 마을 값으로 바뀌지 않기 때문입니다.
+      //    이동하면 문지기(proxy.ts)가 "마지막으로 들어간 마을"도 새 마을로 바꿔 기억합니다.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`/village/${encodeURIComponent(villageId)}`);
+    },
+    [village.id, village.isDemo, closeOverlay, showToast, t.villageDemoNotice],
+  );
   const me = village.residents.find((r) => r.isMe);
 
   // ── 편지 ──
@@ -684,6 +740,10 @@ export default function VillageView({ id, options, village: realVillage, level, 
         {/* key: 이름이 바뀌면 입력칸을 새 이름으로 다시 시작합니다 */}
         {me && <NicknameForm key={me.name} currentName={me.name} onConfirm={handleNicknameConfirm} />}
       </Overlay>
+      {/* 마을 목록 (F017): 칸을 누르면 그 마을로 이동합니다 */}
+      <Overlay open={overlay?.kind === "villages"} onClose={closeOverlay} title={t.villages}>
+        <VillageListPanel items={villageItems} status={villageList.status} onSelect={selectVillage} onRetry={openVillages} />
+      </Overlay>
       <HowToPlay open={overlay?.kind === "howto"} onClose={closeHowTo} />
       <MenuSheet
         open={overlay?.kind === "menu"}
@@ -693,6 +753,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
           customize: t.customize,
           nickname: t.nickname,
           invite: t.invite,
+          villages: t.villages,
           skyMode: t.skyMode,
           skyNames: { day: t.skyDay, night: t.skyNight },
           language: t.language,
@@ -707,6 +768,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
           closeOverlay();
           void copyInvite();
         }}
+        onOpenVillages={openVillages}
         onOpenHowTo={() => setOverlay({ kind: "howto" })}
         // 닉네임은 진짜 마을에서만 바꿀 수 있습니다 (연습용 마을은 저장할 곳이 없음)
         onOpenNickname={village.isDemo ? undefined : () => setOverlay({ kind: "nickname" })}

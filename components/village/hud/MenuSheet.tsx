@@ -3,11 +3,12 @@
 // 메뉴 창: 마을 화면의 기능을 한곳에 모아 둔 창입니다.
 // 11.26 사용자 요청: 화면 위에 흩어져 있던 버튼(편지함·꾸미기·초대)을 여기로 옮겼습니다.
 //   1) 맨 위: 자주 쓰는 기능 3개 (아이콘 타일). 트리 전체 보기는 화면 왼쪽 아래 버튼으로 따로 있습니다
+//   1-2) 마을 목록: 내가 들어간 다른 마을로 이동 (F017, Task 017)
 //   2) 가운데: 설정 (하늘 아침/밤, 언어)
 //   3) 아래: 로그아웃(지금은 안내 메시지만), "앱 출시 coming soon" 안내
 // 겹쳐 뜨는 창 뼈대는 components/overlay/Overlay.tsx를 그대로 씁니다.
 
-import { ChevronRight, CircleHelp, CircleUserRound, Languages, Link2, LogOut, Mail, Moon, Shirt, Sun, SunMoon, type LucideIcon } from "lucide-react";
+import { ChevronRight, CircleHelp, CircleUserRound, Languages, Link2, LogOut, Mail, MapPinned, Moon, Shirt, Sun, SunMoon, type LucideIcon } from "lucide-react";
 import Overlay from "@/components/overlay/Overlay";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { LOCALE_NAMES, type Locale } from "@/i18n/messages";
@@ -21,6 +22,7 @@ interface MenuSheetProps {
     customize: string;
     nickname: string;
     invite: string;
+    villages: string;
     skyMode: string;
     skyNames: Record<SkyMode, string>;
     language: string;
@@ -31,6 +33,8 @@ interface MenuSheetProps {
   onOpenLetterbox: () => void;
   onOpenCustomize: () => void;
   onCopyInvite: () => void;
+  /** 마을 목록 창 열기 (내가 들어간 다른 마을로 이동) */
+  onOpenVillages: () => void;
   /** "이용 방법" 안내 창 열기 */
   onOpenHowTo: () => void;
   /** 닉네임 바꾸기 창 열기. 없으면 줄을 숨깁니다 (연습용 마을) */
@@ -71,6 +75,7 @@ export function MenuSheet({
   onOpenLetterbox,
   onOpenCustomize,
   onCopyInvite,
+  onOpenVillages,
   onOpenHowTo,
   onOpenNickname,
   sky,
@@ -89,6 +94,18 @@ export function MenuSheet({
           <ActionTile icon={Shirt} label={labels.customize} tint="#3b6fd4" onClick={onOpenCustomize} />
           <ActionTile icon={Link2} label={labels.invite} tint="#c07a12" onClick={onCopyInvite} />
         </div>
+
+        {/* 1-2) 마을 목록: 줄 전체가 버튼입니다 */}
+        <button
+          type="button"
+          onClick={onOpenVillages}
+          className="flex min-h-14 items-center gap-3 rounded-2xl px-4 text-left transition active:brightness-95"
+          style={{ backgroundColor: UI_COLORS.surface }}
+        >
+          <MapPinned className="size-5 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{labels.villages}</span>
+          <ChevronRight className="size-4 shrink-0" style={{ color: UI_COLORS.muted }} aria-hidden="true" />
+        </button>
 
         {/* 2) 설정: 한 카드 안에 줄로 나눠 담습니다 */}
         <div className="flex flex-col rounded-2xl" style={{ backgroundColor: UI_COLORS.surface }}>
