@@ -1,7 +1,9 @@
 "use client";
 
 // 마을 만들기 화면의 내용입니다. (F011 마을 만들기, F012 초대 링크)
-// 1) 모임 이름과 "이 마을에서 쓸 내 닉네임"을 적고, 마을 종류(친구 / 커플)를 골라 "만들기"를 누릅니다. 정원(인원 수)은 묻지 않습니다.
+// 1) 모임 이름과 "이 마을에서 쓸 내 닉네임"을 적고, 마을 종류(친구 / 커플)를 고른 뒤 "만들기"를 누릅니다.
+//    친구 마을은 정원(목표 인원, 3~30명)도 정합니다. [확정 11.28]
+//    정원은 진행률의 기준 인원이라 나중에 줄일 수 없습니다. 그래서 고르는 자리에 경고 글을 함께 보여 줍니다.
 // 2) 만들고 나면 같은 자리에 초대 링크가 나타나고, 복사하거나 캐릭터 꾸미기로 넘어갈 수 있습니다.
 // (로드맵 Task 008) "만들기"를 누르면 데이터베이스의 create_village 함수를 부릅니다.
 //    그 함수가 한 번에 마을을 저장하고, 만든 사람을 첫 주민으로 넣고, 초대 코드를 만들어 돌려줍니다.
@@ -10,7 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Copy, PartyPopper } from "lucide-react";
+import { Check, Copy, Minus, PartyPopper, Plus, TriangleAlert } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { NicknameField } from "@/components/village/NicknameField";
 import { useMessages } from "@/i18n/LocaleContext";
@@ -20,7 +22,16 @@ import { copyText, inviteUrl } from "@/lib/village/invite";
 import { initialNickname, validateNickname } from "@/lib/village/nickname";
 import { UI_COLORS } from "@/lib/village/theme";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
-import { availableVillageKinds, validateVillageName, VILLAGE_NAME_MAX } from "@/lib/villages/rules";
+import { requiredCount } from "@/lib/decor/progress";
+import {
+  availableVillageKinds,
+  clampCapacity,
+  validateCapacity,
+  validateVillageName,
+  VILLAGE_CAPACITY_MAX,
+  VILLAGE_CAPACITY_MIN,
+  VILLAGE_NAME_MAX,
+} from "@/lib/villages/rules";
 import type { VillageKind } from "@/types/domain";
 
 /**
@@ -33,6 +44,15 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
   // 이 마을에서 쓸 내 닉네임 (11.27 사용자 요청: 마을을 만드는 사람은 만들 때 정합니다)
   const [nickname, setNickname] = useState(() => initialNickname(defaultNickname));
   const [kind, setKind] = useState<VillageKind>("friends");
+  // 정원 입력칸의 글자. 처음에는 비어 있습니다 (기본값을 두지 않아, 만드는 사람이 직접 고르게 합니다)
+  const [capacityText, setCapacityText] = useState("");
+  // 숫자로만 된 글자일 때만 숫자로 바꿉니다 (비어 있거나 다른 글자가 섞이면 "아직 고르지 않음" = null)
+  const capacity = /^\d+$/.test(capacityText) ? Number(capacityText) : null;
+  const needsCapacity = kind === "friends";
+  const capacityOk = validateCapacity(capacity);
+  // −/＋ 버튼: 아직 고르지 않았으면 가장 작은 값부터 시작합니다
+  const stepCapacity = (delta: number) =>
+    setCapacityText(String(capacity === null ? VILLAGE_CAPACITY_MIN : clampCapacity(capacity + delta)));
   // 만든 마을 (아직 만들기 전이면 null): 초대 링크와 마을 번호
   const [created, setCreated] = useState<{ link: string; villageId: string } | null>(null);
   const createdLink = created?.link ?? null;
@@ -45,7 +65,12 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
     setSubmitting(true);
     setFailed(false);
     const supabase = createClient();
-    const { data, error } = await supabase.rpc("create_village", { p_name: name.trim(), p_kind: kind });
+    const { data, error } = await supabase.rpc("create_village", {
+      p_name: name.trim(),
+      p_kind: kind,
+      // 커플 마을은 데이터베이스가 2명으로 고정하므로 보내지 않습니다
+      ...(needsCapacity && capacity !== null ? { p_capacity: capacity } : {}),
+    });
     if (error || !data) {
       // 로그인이 풀린 채로 눌렀다면 로그인 화면으로 보냅니다 (로그인 뒤 이 화면으로 돌아옴)
       if (error?.message.includes("not_signed_in")) {
@@ -69,8 +94,8 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
   const kindNames: Record<VillageKind, string> = { friends: t.kindFriends, couple: t.kindCouple };
   const kindDescs: Record<VillageKind, string> = { friends: t.kindFriendsDesc, couple: t.kindCoupleDesc };
   const check = validateVillageName(name);
-  // 모임 이름과 닉네임이 모두 규칙에 맞아야 만들 수 있습니다
-  const canSubmit = check === "ok" && validateNickname(nickname) === "ok";
+  // 모임 이름과 닉네임이 모두 규칙에 맞고, 친구 마을이면 정원도 골라야 만들 수 있습니다
+  const canSubmit = check === "ok" && validateNickname(nickname) === "ok" && (!needsCapacity || capacityOk);
   const cardStyle = { backgroundColor: "#ffffff", color: UI_COLORS.navy };
 
   // ── 2) 만든 뒤: 초대 링크 보여 주기 ──
@@ -173,6 +198,72 @@ export function CreateVillageForm({ defaultNickname = "", backHref = null }: { d
           />
           <p className="min-h-8 px-1 text-xs" style={{ color: UI_COLORS.muted }}>
             {kindDescs[kind]}
+          </p>
+        </div>
+      )}
+
+      {/* 정원(목표 인원): 친구 마을만. 커플 마을은 언제나 2명입니다 */}
+      {needsCapacity && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="village-capacity" className="text-sm font-semibold">
+            {t.villageCapacityLabel}
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stepCapacity(-1)}
+              disabled={capacity !== null && capacity <= VILLAGE_CAPACITY_MIN}
+              aria-label={t.villageCapacityMinus}
+              className="flex size-13 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
+              style={{ backgroundColor: UI_COLORS.surface }}
+            >
+              <Minus className="size-5" aria-hidden="true" />
+            </button>
+            <div className="flex h-13 min-w-0 flex-1 items-center justify-center gap-1 rounded-2xl px-4" style={{ backgroundColor: UI_COLORS.surface }}>
+              <input
+                id="village-capacity"
+                type="text"
+                // 💡 inputMode="numeric": 휴대폰에서 숫자 자판이 뜨게 합니다
+                inputMode="numeric"
+                value={capacityText}
+                // 숫자가 아닌 글자는 받지 않고, 두 자리까지만 받습니다
+                onChange={(e) => setCapacityText(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                // 입력칸을 벗어날 때 범위 밖의 숫자(예: 2, 99)를 범위 안으로 맞춥니다
+                onBlur={() => capacity !== null && setCapacityText(String(clampCapacity(capacity)))}
+                placeholder={`${VILLAGE_CAPACITY_MIN}~${VILLAGE_CAPACITY_MAX}`}
+                autoComplete="off"
+                aria-describedby="village-capacity-hint village-capacity-warning"
+                className="w-14 bg-transparent text-center text-base font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[#a9aec0]"
+              />
+              <span className="text-sm" style={{ color: UI_COLORS.muted }}>
+                {t.villageCapacityUnit}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => stepCapacity(1)}
+              disabled={capacity !== null && capacity >= VILLAGE_CAPACITY_MAX}
+              aria-label={t.villageCapacityPlus}
+              className="flex size-13 shrink-0 items-center justify-center rounded-2xl transition-opacity disabled:opacity-35"
+              style={{ backgroundColor: UI_COLORS.surface }}
+            >
+              <Plus className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+          {/* 고른 정원이면 편지가 몇 통 모여야 하는지 바로 알려 줍니다 (계산식은 진행률과 같은 것) */}
+          <p id="village-capacity-hint" role="status" className="min-h-8 px-1 text-xs" style={{ color: UI_COLORS.muted }}>
+            {capacityOk && capacity !== null
+              ? t.villageCapacityHint.replace("{n}", String(capacity)).replace("{total}", String(requiredCount("friends", 0, capacity)))
+              : t.villageCapacityEmptyHint.replace("{min}", String(VILLAGE_CAPACITY_MIN)).replace("{max}", String(VILLAGE_CAPACITY_MAX))}
+          </p>
+          {/* 경고: 정원은 나중에 줄일 수 없습니다 */}
+          <p
+            id="village-capacity-warning"
+            className="flex gap-2 rounded-2xl px-3.5 py-3 text-xs leading-relaxed"
+            style={{ backgroundColor: `${UI_COLORS.accent}14`, color: UI_COLORS.navy }}
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" style={{ color: UI_COLORS.accent }} aria-hidden="true" />
+            <span>{t.villageCapacityWarning}</span>
           </p>
         </div>
       )}
