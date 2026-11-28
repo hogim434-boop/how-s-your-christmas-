@@ -45,9 +45,9 @@ describe("toVillageData", () => {
   });
 
   it("꾸미기 값: 없으면 null, 올바르면 그대로, 깨졌으면 기본 모양", () => {
-    const good = { ...DEFAULT_PARTS, hat: "hat_2" };
+    const good = { ...DEFAULT_PARTS, shoes: "boots", shoesColor: "brown" };
     const data = toVillageData(
-      rows({ residents: [row("u1", "1", good), row("u2", "2", { hair: "이상한 값" }), row("u3", "3")] }),
+      rows({ residents: [row("u1", "1", good), row("u2", "2", { top: "이상한 값" }), row("u3", "3")] }),
     );
     expect(data.residents[0].characterParts).toEqual(good);
     expect(data.residents[1].characterParts).toEqual(DEFAULT_PARTS);
