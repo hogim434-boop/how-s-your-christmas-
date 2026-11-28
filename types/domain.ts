@@ -24,16 +24,23 @@ export type VillageKind = "friends" | "couple";
 export type NotificationKind = "new_ornament" | "unlock";
 
 /**
- * 캐릭터 꾸미기 값: 부위 6가지마다 고른 모양의 이름(키). (F016)
- * 부위별 모양 목록은 아직 정해지지 않아(로드맵 D-06) 일단 글자로 둡니다.
+ * 캐릭터 꾸미기 값 (F016, 11.28 확정).
+ * - base: 여자("girl")·남자("boy") 중 고른 캐릭터. 머리카락과 얼굴은 여기에 따라 고정됩니다. 체형은 하나입니다.
+ * - 부위 5가지(상의·하의·장갑·목도리·신발)마다 "모양 이름"과 "색 이름"을 하나씩 가집니다.
+ *   고를 수 있는 모양·색 목록은 lib/character/parts.ts에 있습니다. 장갑·목도리의 모양은 "none"(안 함)일 수 있습니다.
  */
 export type CharacterParts = {
-  hair: string;
+  base: string;
   top: string;
+  topColor: string;
   bottom: string;
-  hat: string;
-  scarf: string;
+  bottomColor: string;
   gloves: string;
+  glovesColor: string;
+  scarf: string;
+  scarfColor: string;
+  shoes: string;
+  shoesColor: string;
 };
 
 /** 사용자 */
