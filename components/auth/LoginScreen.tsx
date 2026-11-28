@@ -10,6 +10,7 @@ import type { CSSProperties } from "react";
 import { DM_Serif_Display } from "next/font/google";
 import { MessageCircle } from "lucide-react";
 import { LanguageButton } from "@/components/LanguageButton";
+import { KakaoLoginButton } from "./KakaoLoginButton";
 import { useMessages } from "@/i18n/LocaleContext";
 import type { Messages } from "@/i18n/messages";
 import type { AuthError, Notice } from "@/lib/auth/next";
@@ -142,15 +143,15 @@ export function LoginScreen({ inviteCode, inviteVillageName, next, error, notice
           <MessageCircle className="size-5" aria-hidden="true" />
           {t.loginWithLine}
         </a>
-        {/* 카카오도 LINE처럼 우리 서버의 시작 주소로 갑니다 (11.27: 이메일 없이 닉네임만 받기 위해 직접 통신) */}
-        <a
-          href={`/auth/kakao/start${query}`}
+        {/* 카카오: 휴대폰에서 카카오톡 앱으로 넘어가도록 카카오 스크립트로 시작합니다. 스크립트를 못 쓰면 LINE처럼 우리 서버의 시작 주소로 갑니다 */}
+        <KakaoLoginButton
+          query={query}
           className={`${RISE} flex h-14 items-center justify-center gap-2 rounded-full text-[15px] font-semibold shadow-[0_10px_30px_rgba(254,229,0,0.25),inset_0_1px_0_rgba(255,255,255,0.5)] transition hover:brightness-105 active:scale-[0.98]`}
           style={{ ...delay(620), ...BRAND.kakao }}
         >
           <MessageCircle className="size-5" aria-hidden="true" />
           {t.loginWithKakao}
-        </a>
+        </KakaoLoginButton>
         <p style={delay(760)} className={`${RISE} px-2 pt-2 text-center text-xs leading-relaxed text-white/75`}>
           {t.loginNotifyHint}
         </p>
