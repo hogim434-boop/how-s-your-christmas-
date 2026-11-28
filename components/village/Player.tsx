@@ -1,32 +1,35 @@
 "use client";
 
-// 마을을 걸어 다니는 내 캐릭터입니다. (KayKit Rogue 모델)
+// 마을을 걸어 다니는 내 캐릭터입니다. (꾸미기 캐릭터, chibiModel.ts)
 // - 땅을 누르면(target이 바뀌면) 그 자리로 일정한 속도로 걸어갑니다.
 // - 가는 방향으로 부드럽게 몸을 돌리고, 도착하면 멈춥니다.
-// - 서 있을 땐 Unarmed_Idle, 걸을 땐 Walking_A 동작을 서로 부드럽게 섞어 보여 줍니다.
+// - 걸을 땐 팔다리를 앞뒤로 흔들고, 서 있을 땐 숨 쉬듯 살짝 흔들립니다 (chibiModel.ts의 animateChibi).
 // - 트리·집·우체통·가로등과 마을 경계는 buildObstacles가 만든 동그라미로 막습니다.
 // 💡 "한 장면 동안 얼마나 걷는지" 계산은 lib/village/walker.ts에 있습니다. (Task 025-2)
 //    같은 마을에 접속한 다른 주민(RemotePlayers.tsx)도 같은 계산을 써서, 누구의 화면에서든 똑같이 걷습니다.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useAnimations, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { buildObstacles, type Point } from "@/lib/village/collision";
 import { PLAYER_START, type HouseSlot } from "@/lib/village/layout";
 import { createWalker, planRoute, stepWalker } from "@/lib/village/walker";
 import { useWalkTarget, type WalkStore } from "@/lib/village/walkStore";
 import { PLAYER_OBJECT_NAME } from "./FollowCamera";
-import { CHARACTER_MODEL_URL, FADE_SECONDS, IDLE_CLIP, WALK_CLIP, prepareCharacter } from "./characterModel";
+import type { CharacterParts } from "@/types/domain";
+import { CHIBI_MODEL_URL, animateChibi, createChibi, disposeChibi, setChibiNight } from "./chibiModel";
 import { useNight } from "./nightContext";
 import { softDot } from "./particles";
 
-/** 캐릭터 크기 배율 */
+/** 캐릭터를 감싸는 묶음의 크기 배율 (캐릭터 자체의 크기는 chibiModel.ts의 CHIBI_SCALE) */
 export const PLAYER_SCALE = 1;
 /** 그림자를 만들지 않는 물체라는 표시 (ShadowFlags.tsx가 읽습니다). 움직이는 캐릭터는 발밑의 둥근 그림자로 대신합니다 */
 export const NO_SHADOW_CAST = { noShadowCast: true } as const;
 
 interface PlayerProps {
+  /** 꾸미기 값 (여자·남자, 부위별 모양과 색). 바뀌면 캐릭터를 새로 만듭니다 */
+  parts: CharacterParts;
   /** 걸어갈 목표가 담긴 보관함. 목표가 바뀌면 캐릭터만 다시 그려집니다 (lib/village/walkStore.ts) */
   store: WalkStore;
   /** 집 자리 (충돌 계산용) */
@@ -39,17 +42,19 @@ interface PlayerProps {
   start?: Point;
 }
 
-export function Player({ store, slots, boundsRadius, heightAt, start }: PlayerProps) {
+export function Player({ parts, store, slots, boundsRadius, heightAt, start }: PlayerProps) {
   // 걸어갈 목표. 땅을 누를 때마다 id가 바뀝니다. 없으면 제자리
   const target = useWalkTarget(store);
   const night = useNight();
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(CHARACTER_MODEL_URL);
+  const { scene } = useGLTF(CHIBI_MODEL_URL);
 
-  // 받아 온 모델에서 캐릭터 한 명을 복사합니다 (characterModel.ts)
-  const model = useMemo(() => prepareCharacter(scene), [scene]);
-
-  const { actions } = useAnimations(animations, group);
+  // 받아 온 모델 파일에서, 고른 옷을 입은 캐릭터 한 명을 만듭니다 (chibiModel.ts)
+  const chibi = useMemo(() => createChibi(scene, parts), [scene, parts]);
+  // 옷을 갈아입어 새로 만들었거나 화면을 떠날 때, 전에 쓰던 것을 놓아 줍니다
+  useEffect(() => () => disposeChibi(chibi), [chibi]);
+  // 밤에는 캐릭터가 자기 색을 스스로 조금 밝혀, 어두운 눈밭에서도 잘 보이게 합니다
+  useEffect(() => setChibiNight(chibi, night), [chibi, night]);
   const obstacles = useMemo(() => buildObstacles(slots), [slots]);
 
   // 처음 서 있을 자리 (처음 한 번만 정합니다. 나중에 값이 바뀌어도 캐릭터가 갑자기 옮겨 가지 않게)
@@ -73,24 +78,16 @@ export function Player({ store, slots, boundsRadius, heightAt, start }: PlayerPr
     store.setPos(walker.current.x, walker.current.z);
   }, [store]);
 
-  // 처음에는 서 있는 동작
-  useEffect(() => {
-    actions[IDLE_CLIP]?.reset().fadeIn(0.1).play();
-  }, [actions]);
-
-  // 동작 바꾸기: 지금 동작을 서서히 끄고 새 동작을 서서히 켭니다 (cross-fade)
+  // 걷는 중인지 적어 둡니다. 동작을 부드럽게 바꾸는 일은 animateChibi가 합니다
   const setWalking = (next: boolean) => {
-    if (walking.current === next) return;
     walking.current = next;
-    const from = actions[next ? IDLE_CLIP : WALK_CLIP];
-    const to = actions[next ? WALK_CLIP : IDLE_CLIP];
-    from?.fadeOut(FADE_SECONDS);
-    to?.reset().fadeIn(FADE_SECONDS).play();
   };
 
   useFrame((_, delta) => {
     const g = group.current;
     if (!g) return;
+    // 팔다리 동작 (서 있을 때도 숨 쉬듯 조금 움직이므로 매 장면 부릅니다)
+    animateChibi(chibi, delta, walking.current);
     const w = walker.current;
     // 서 있는 중이면(경유지가 없으면) 아무것도 하지 않습니다
     if (w.route.length === 0) return;
@@ -122,7 +119,7 @@ export function Player({ store, slots, boundsRadius, heightAt, start }: PlayerPr
       scale={PLAYER_SCALE}
       userData={NO_SHADOW_CAST}
     >
-      <primitive object={model} />
+      <primitive object={chibi.mesh} />
       {/* 밤: 발밑의 둥근 그림자 (달빛 그림자를 매번 다시 그리지 않으려고 캐릭터 그림자는 이걸로 대신합니다) */}
       {night && (
         <mesh position={[0, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
@@ -134,4 +131,4 @@ export function Player({ store, slots, boundsRadius, heightAt, start }: PlayerPr
   );
 }
 
-useGLTF.preload(CHARACTER_MODEL_URL);
+useGLTF.preload(CHIBI_MODEL_URL);
