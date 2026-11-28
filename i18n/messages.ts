@@ -170,6 +170,8 @@ export type Messages = {
   inviteInvalidTitle: string;
   inviteInvalidDesc: string;
   inviteCoupleFull: string;
+  /** 친구 마을이 이미 가득 찼을 때 ({max} = 최대 인원) */
+  inviteVillageFull: string;
   inviteJoinFailed: string;
   backToStart: string;
   /** 초대 링크 입구 */
@@ -185,6 +187,17 @@ export type Messages = {
   kindFriendsDesc: string;
   kindCouple: string;
   kindCoupleDesc: string;
+  /** 마을 만들기: 정원(목표 인원) 고르기 */
+  villageCapacityLabel: string;
+  villageCapacityUnit: string;
+  /** 아직 고르지 않았을 때의 안내 ({min}~{max}) */
+  villageCapacityEmptyHint: string;
+  /** 고른 뒤의 안내 ({n} = 정원, {total} = 모여야 하는 편지 수) */
+  villageCapacityHint: string;
+  /** 정원은 줄일 수 없다는 경고 */
+  villageCapacityWarning: string;
+  villageCapacityMinus: string;
+  villageCapacityPlus: string;
   createVillageButton: string;
   villageCreated: string;
   inviteLinkLabel: string;
@@ -193,6 +206,8 @@ export type Messages = {
   villages: string;
   villageCurrent: string;
   villageResidentCount: string;
+  /** 친구 마을의 인원 표시 ({n} = 지금 주민 수, {c} = 정원) */
+  villageResidentCapacity: string;
   villageMyName: string;
   villageNew: string;
   villageListError: string;
@@ -321,6 +336,7 @@ const messages = {
     inviteInvalidTitle: "この招待リンクは使えません",
     inviteInvalidDesc: "リンクが間違っているか、村がなくなったようです。招待してくれた人にもう一度聞いてみてください",
     inviteCoupleFull: "この村はふたりだけの村で、もう満員です",
+    inviteVillageFull: "この村は{max}人でもう満員です",
     inviteJoinFailed: "村に入れませんでした。もう一度お試しください",
     backToStart: "はじめの画面へ",
     inviteLandingTitle: "村への招待が届きました",
@@ -331,9 +347,16 @@ const messages = {
     villageNameTooLong: "{max}文字以内で入力してください",
     villageKindLabel: "村の種類",
     kindFriends: "友だちの村",
-    kindFriendsDesc: "人数の制限はありません。みんなで手紙を送り合います",
+    kindFriendsDesc: "定員を決めて、みんなで手紙を送り合います",
     kindCouple: "カップルの村",
     kindCoupleDesc: "ふたりだけの村です。質問と手紙でツリーを飾ります",
+    villageCapacityLabel: "定員",
+    villageCapacityUnit: "人",
+    villageCapacityEmptyHint: "一緒に過ごす人数を{min}〜{max}人で決めてください",
+    villageCapacityHint: "{n}人がお互いに1通ずつ、手紙が{total}通集まるとツリーが完成します",
+    villageCapacityWarning: "定員は一度決めると減らせません。定員がそろわないとツリーを完成させにくいので、実際に集まる人数で決めてください。定員より多くの友だちが入ると、定員は自動で増えます。",
+    villageCapacityMinus: "1人減らす",
+    villageCapacityPlus: "1人増やす",
     createVillageButton: "村をつくる",
     villageCreated: "村ができました!",
     inviteLinkLabel: "招待リンク",
@@ -341,6 +364,7 @@ const messages = {
     villages: "村のリスト",
     villageCurrent: "いまここ",
     villageResidentCount: "{n}人",
+    villageResidentCapacity: "{n}人 / 定員{c}人",
     villageMyName: "わたしの名前: {name}",
     villageNew: "新しい村をつくる",
     villageListError: "村のリストを読み込めませんでした",
@@ -465,6 +489,7 @@ const messages = {
     inviteInvalidTitle: "사용할 수 없는 초대 링크예요",
     inviteInvalidDesc: "링크가 잘못됐거나 마을이 없어진 것 같아요. 초대해 준 사람에게 다시 물어봐 주세요",
     inviteCoupleFull: "이 마을은 둘만의 마을이라 이미 가득 찼어요",
+    inviteVillageFull: "이 마을은 {max}명이 모두 차서 더 들어갈 수 없어요",
     inviteJoinFailed: "마을에 들어가지 못했어요. 다시 시도해 주세요",
     backToStart: "처음 화면으로",
     inviteLandingTitle: "마을 초대장이 도착했어요",
@@ -475,9 +500,16 @@ const messages = {
     villageNameTooLong: "{max}자 이내로 입력해 주세요",
     villageKindLabel: "마을 종류",
     kindFriends: "친구 마을",
-    kindFriendsDesc: "인원 제한 없이 서로 편지를 주고받아요",
+    kindFriendsDesc: "정원을 정하고 서로 편지를 주고받아요",
     kindCouple: "커플 마을",
     kindCoupleDesc: "둘만의 마을. 질문과 편지로 트리를 꾸며요",
+    villageCapacityLabel: "정원",
+    villageCapacityUnit: "명",
+    villageCapacityEmptyHint: "함께할 인원을 {min}~{max}명 사이에서 정해 주세요",
+    villageCapacityHint: "{n}명이 서로에게 한 통씩, 편지 {total}통이 모이면 트리가 완성돼요",
+    villageCapacityWarning: "정원은 한 번 정하면 줄일 수 없어요. 정원이 다 모이지 않으면 트리를 완성하기 어려우니, 실제로 함께할 인원으로 정해 주세요. 정원보다 많은 친구가 들어오면 정원은 자동으로 늘어나요.",
+    villageCapacityMinus: "한 명 줄이기",
+    villageCapacityPlus: "한 명 늘리기",
     createVillageButton: "마을 만들기",
     villageCreated: "마을이 만들어졌어요!",
     inviteLinkLabel: "초대 링크",
@@ -485,6 +517,7 @@ const messages = {
     villages: "마을 목록",
     villageCurrent: "지금 여기",
     villageResidentCount: "{n}명",
+    villageResidentCapacity: "{n}명 / 정원 {c}명",
     villageMyName: "내 이름: {name}",
     villageNew: "새 마을 만들기",
     villageListError: "마을 목록을 불러오지 못했어요",
