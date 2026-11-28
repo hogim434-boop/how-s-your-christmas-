@@ -189,6 +189,16 @@ export type Messages = {
   villageCreated: string;
   inviteLinkLabel: string;
   goCustomize: string;
+  // ── 마을 목록 (F017, Task 017) ──
+  villages: string;
+  villageCurrent: string;
+  villageResidentCount: string;
+  villageMyName: string;
+  villageNew: string;
+  villageListError: string;
+  villageRetry: string;
+  villageBack: string;
+  villageDemoNotice: string;
 };
 
 // satisfies: "두 언어 모두 Messages 모양을 빠짐없이 지켰는지" 타입스크립트가 검사해 줍니다.
@@ -328,6 +338,15 @@ const messages = {
     villageCreated: "村ができました!",
     inviteLinkLabel: "招待リンク",
     goCustomize: "キャラクターを着せ替える",
+    villages: "村のリスト",
+    villageCurrent: "いまここ",
+    villageResidentCount: "{n}人",
+    villageMyName: "わたしの名前: {name}",
+    villageNew: "新しい村をつくる",
+    villageListError: "村のリストを読み込めませんでした",
+    villageRetry: "もう一度",
+    villageBack: "村にもどる",
+    villageDemoNotice: "おためしの村では移動できません",
   },
   ko: {
     appName: "How's your Christmas",
@@ -463,6 +482,15 @@ const messages = {
     villageCreated: "마을이 만들어졌어요!",
     inviteLinkLabel: "초대 링크",
     goCustomize: "캐릭터 꾸미러 가기",
+    villages: "마을 목록",
+    villageCurrent: "지금 여기",
+    villageResidentCount: "{n}명",
+    villageMyName: "내 이름: {name}",
+    villageNew: "새 마을 만들기",
+    villageListError: "마을 목록을 불러오지 못했어요",
+    villageRetry: "다시 시도",
+    villageBack: "마을로 돌아가기",
+    villageDemoNotice: "연습용 마을에서는 이동할 수 없어요",
   },
 } satisfies Record<Locale, Messages>;
 
