@@ -71,7 +71,11 @@ export function VillageListPanel({ items, status, onSelect, onRetry }: VillageLi
     <ul className="flex flex-col gap-3">
       {items.map((village) => {
         const kindName = village.kind === "couple" ? t.kindCouple : t.kindFriends;
-        const residents = t.villageResidentCount.replace("{n}", String(village.residentCount));
+        // 친구 마을은 "지금 인원 / 정원"을 함께 보여 줍니다 (커플 마을은 언제나 2명이라 인원만)
+        const residents =
+          village.kind === "friends"
+            ? t.villageResidentCapacity.replace("{n}", String(village.residentCount)).replace("{c}", String(village.capacity))
+            : t.villageResidentCount.replace("{n}", String(village.residentCount));
         return (
           <li key={village.id}>
             <button
