@@ -17,12 +17,14 @@
 //    다시 보거나 인터넷이 돌아오면 새로 잇고, 그때 접속해 있는 주민들이 지금 자리를 다시 알려 줍니다.
 //    (닫아 두면 무료 한도의 "동시 연결 수"를 아끼고, 다른 사람 화면에서 내가 유령처럼 남지 않습니다)
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import {
   MAX_REMOTE_AVATARS,
   MOVE_EVENT,
+  PROGRESS_EVENT,
+  PROGRESS_REFRESH_MS,
   clampToBounds,
   diffKeys,
   joinReplyWindowMs,
@@ -67,6 +69,16 @@ interface LiveWalkOptions {
   onlineStore: OnlineStore;
   /** 화면이 아직 모르는 주민의 방송이 왔을 때 (방금 입주한 사람) → 마을 정보를 다시 읽게 합니다 */
   onUnknownResident: () => void;
+  /** 다른 주민이 편지를 쓰거나 지웠다는 알림이 왔을 때 → 진행 숫자를 다시 읽게 합니다 */
+  onProgressChanged: () => void;
+}
+
+/** 이 훅이 화면(VillageView)에 돌려주는 것 */
+export interface LiveWalkHandle {
+  /** 내가 편지를 쓰거나 지운 뒤 부릅니다: 같은 마을에 접속한 사람들에게 "진행률이 바뀌었어요"라고 알립니다 */
+  announceProgress: () => void;
+  /** 실시간 통로가 지금 이어져 있는지 */
+  isConnected: () => boolean;
 }
 
 /** 소수 둘째 자리까지만 보냅니다 (1cm 단위면 충분하고, 메시지가 작아집니다) */
@@ -83,19 +95,24 @@ export function useLiveWalk({
   remoteStore,
   onlineStore,
   onUnknownResident,
-}: LiveWalkOptions) {
+  onProgressChanged,
+}: LiveWalkOptions): LiveWalkHandle {
   // 자주 바뀌는 값들은 "상자(ref)"에 담아 둡니다. 이 값이 바뀔 때마다 연결을 끊고 다시 맺지 않기 위해서입니다
   const residentSet = useRef<ReadonlySet<string>>(new Set());
   const unknownHandler = useRef(onUnknownResident);
+  const progressHandler = useRef(onProgressChanged);
   const bounds = useRef(boundsRadius);
+  // 연결돼 있는 동안에만 들어 있는 "바깥에서 부를 수 있는 기능" (아래에서 돌려주는 함수들이 이 상자를 봅니다)
+  const live = useRef<{ sendProgress: () => void; isSubscribed: () => boolean } | null>(null);
   // 주민 목록이 바뀌면(새 주민의 집이 그려지면) 보여 줄 사람을 다시 고르는 함수. 연결돼 있을 때만 들어 있습니다
   const reconcile = useRef<(() => void) | null>(null);
   useEffect(() => {
     residentSet.current = new Set(residentIds);
     unknownHandler.current = onUnknownResident;
+    progressHandler.current = onProgressChanged;
     bounds.current = boundsRadius;
     reconcile.current?.();
-  }, [residentIds, onUnknownResident, boundsRadius]);
+  }, [residentIds, onUnknownResident, onProgressChanged, boundsRadius]);
 
   useEffect(() => {
     if (!enabled || !myId) return;
@@ -105,6 +122,8 @@ export function useLiveWalk({
     let disposed = false;
     let channel: RealtimeChannel | null = null;
     let subscribed = false;
+    /** 한 번이라도 이어진 적이 있는지 (다시 이어졌을 때 그 사이 바뀐 진행률을 따라잡는 데 씁니다) */
+    let everSubscribed = false;
     /** 연결을 준비하는 중인지 (로그인 정보 싣기·내 캐릭터 기다리기). 이때 또 연결을 시작하지 않습니다 */
     let connecting = false;
     /** 연결을 끊을 때마다 1씩 늘립니다. 끊기 전에 시작한 준비 작업이 뒤늦게 채널을 만들지 않게 하는 표시 */
@@ -114,6 +133,8 @@ export function useLiveWalk({
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
     let sendTimer: ReturnType<typeof setTimeout> | undefined;
     let replyTimer: ReturnType<typeof setTimeout> | undefined;
+    let progressTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastProgressAt = 0;
     let lastSentAt = 0;
     let lastUnknownAt = 0;
     /** 지금 채널에 있는 사람들의 사용자 번호 (나 포함) */
@@ -184,6 +205,27 @@ export function useLiveWalk({
         sendNow();
       }, wait);
     };
+
+    /** 내가 편지를 쓰거나 지웠다고 알립니다. 혼자면 보내지 않습니다 (숫자는 싣지 않고, 받은 쪽이 직접 다시 읽습니다) */
+    const sendProgress = () => {
+      if (!channel || !subscribed) return;
+      if (present.every((key) => key === myId)) return;
+      void channel.send({ type: "broadcast", event: PROGRESS_EVENT, payload: {} }).catch(() => {});
+    };
+    /**
+     * 진행률이 바뀌었다는 알림을 받았을 때: 숫자를 다시 읽게 합니다.
+     * 연달아 와도 정해진 간격에 한 번만 읽고, 기다리는 동안 온 알림은 그 한 번에 함께 반영됩니다.
+     */
+    const onProgress = () => {
+      if (progressTimer !== undefined) return;
+      const wait = Math.max(0, lastProgressAt + PROGRESS_REFRESH_MS - Date.now());
+      progressTimer = setTimeout(() => {
+        progressTimer = undefined;
+        lastProgressAt = Date.now();
+        progressHandler.current();
+      }, wait);
+    };
+    live.current = { sendProgress, isSubscribed: () => subscribed };
 
     const clearOthers = () => {
       present = [];
@@ -260,6 +302,8 @@ export function useLiveWalk({
       sendTimer = undefined;
       clearTimeout(replyTimer);
       replyTimer = undefined;
+      clearTimeout(progressTimer);
+      progressTimer = undefined;
       const ch = channel;
       channel = null;
       // 💡 마지막 채널을 치우면 실시간 연결(WebSocket)도 함께 닫힙니다
@@ -300,12 +344,16 @@ export function useLiveWalk({
       channel = ch;
       ch.on("presence", { event: "sync" }, onPresenceSync);
       ch.on("broadcast", { event: MOVE_EVENT }, (message) => onMove(message.payload));
+      ch.on("broadcast", { event: PROGRESS_EVENT }, onProgress);
       ch.subscribe((status, error) => {
         // 이미 버린 채널이 뒤늦게 알려 온 것은 무시합니다
         if (disposed || channel !== ch) return;
         if (status === "SUBSCRIBED") {
           subscribed = true;
           attempt = 0;
+          // 끊겼다가 다시 이어진 경우: 그 사이에 놓친 알림이 있을 수 있으므로 진행 숫자를 한 번 다시 읽습니다
+          if (everSubscribed) onProgress();
+          everSubscribed = true;
           // "나 접속했어요"를 한 번 알립니다. 접속 여부만 알리므로 내용은 비워 둡니다
           void ch.track({}).catch(() => {});
           return;
@@ -364,6 +412,7 @@ export function useLiveWalk({
     return () => {
       disposed = true;
       reconcile.current = null;
+      live.current = null;
       unsubscribeWalk();
       clearInterval(repickTimer);
       clearTimeout(hideTimer);
@@ -375,4 +424,13 @@ export function useLiveWalk({
       disconnect();
     };
   }, [enabled, villageId, myId, walkStore, remoteStore, onlineStore]);
+
+  // 돌려주는 함수는 늘 같은 것(useMemo)이라, 받는 쪽이 이 값 때문에 다시 그려지거나 타이머를 다시 걸지 않습니다
+  return useMemo(
+    () => ({
+      announceProgress: () => live.current?.sendProgress(),
+      isConnected: () => live.current?.isSubscribed() ?? false,
+    }),
+    [],
+  );
 }
