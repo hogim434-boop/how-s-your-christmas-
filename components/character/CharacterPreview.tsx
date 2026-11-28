@@ -27,7 +27,7 @@ type Spin = { angle: number; touched: boolean; lastX: number | null };
 function PreviewCharacter({ parts, spin }: { parts: CharacterParts; spin: RefObject<Spin> }) {
   const { scene } = useGLTF(CHIBI_MODEL_URL);
   // 옷을 바꿀 때마다 그 옷을 입은 캐릭터를 새로 만들고, 전에 쓰던 것은 놓아 줍니다
-  const chibi = useMemo(() => createChibi(scene, parts), [scene, parts]);
+  const chibi = useMemo(() => createChibi(scene, parts, 0, false), [scene, parts]);
   useEffect(() => () => disposeChibi(chibi), [chibi]);
   const group = useRef<THREE.Group>(null);
   const time = useRef(0);
