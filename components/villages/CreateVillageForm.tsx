@@ -23,8 +23,11 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
 import { availableVillageKinds, validateVillageName, VILLAGE_NAME_MAX } from "@/lib/villages/rules";
 import type { VillageKind } from "@/types/domain";
 
-/** defaultNickname: 닉네임 입력칸에 미리 채워 둘 이름 (LINE·카카오 닉네임) */
-export function CreateVillageForm({ defaultNickname = "" }: { defaultNickname?: string }) {
+/**
+ * - defaultNickname: 닉네임 입력칸에 미리 채워 둘 이름 (LINE·카카오 닉네임)
+ * - backHref: 이미 들어간 마을이 있을 때, 만들지 않고 돌아갈 마을 주소 (없으면 돌아가기 링크를 숨김, Task 017)
+ */
+export function CreateVillageForm({ defaultNickname = "", backHref = null }: { defaultNickname?: string; backHref?: string | null }) {
   const t = useMessages();
   const [name, setName] = useState("");
   // 이 마을에서 쓸 내 닉네임 (11.27 사용자 요청: 마을을 만드는 사람은 만들 때 정합니다)
@@ -186,6 +189,12 @@ export function CreateVillageForm({ defaultNickname = "" }: { defaultNickname?: 
         <p role="alert" className="text-center text-xs font-semibold" style={{ color: UI_COLORS.accent }}>
           {t.createVillageFailed}
         </p>
+      )}
+      {/* 이미 마을이 있는 사람: 만들지 않고 원래 마을로 돌아가기 (마을 목록에서 들어온 경우, Task 017) */}
+      {backHref && (
+        <Link href={backHref} className="flex min-h-11 items-center justify-center text-sm font-semibold" style={{ color: UI_COLORS.muted }}>
+          {t.villageBack}
+        </Link>
       )}
     </form>
   );

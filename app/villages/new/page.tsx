@@ -9,7 +9,7 @@ import { NoticeBanner } from "@/components/auth/NoticeBanner";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { CreateVillageForm } from "@/components/villages/CreateVillageForm";
 import { parseNotice } from "@/lib/auth/next";
-import { getCurrentUserId, getMyLoginName } from "@/lib/auth/session";
+import { getCurrentUserId, getLastVillageId, getMyLoginName, getMyVillageIds } from "@/lib/auth/session";
 import { VILLAGE_COLORS } from "@/lib/village/theme";
 
 // 주소의 ?notice= 값을 읽어 안내를 보여 주는 부분.
@@ -29,10 +29,15 @@ async function NoticeContent({ searchParams }: Pick<PageProps<"/villages/new">, 
 // (쿠키를 읽는 "요청마다 달라지는 값"이라 이 부분도 <Suspense> 안에 둡니다)
 async function FormContent() {
   const userId = await getCurrentUserId();
-  const loginName = userId ? await getMyLoginName(userId) : "";
+  // 이미 들어간 마을이 있으면 "마을로 돌아가기" 링크를 보여 줍니다 (마을 목록에서 들어온 사람, Task 017).
+  // 돌아갈 곳: 마지막으로 들어간 마을. 기억이 없거나 이제 주민이 아니면 가장 최근에 입주한 마을
+  const [loginName, villageIds, lastVillageId] = userId
+    ? await Promise.all([getMyLoginName(userId), getMyVillageIds(userId), getLastVillageId()])
+    : ["", [] as string[], null];
+  const backId = lastVillageId && villageIds.includes(lastVillageId) ? lastVillageId : villageIds[0];
   return (
     <LocaleProvider>
-      <CreateVillageForm defaultNickname={loginName} />
+      <CreateVillageForm defaultNickname={loginName} backHref={backId ? `/village/${backId}` : null} />
     </LocaleProvider>
   );
 }
