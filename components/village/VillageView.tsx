@@ -11,9 +11,9 @@ import { createWalkStore } from "@/lib/village/walkStore";
 import { createRemoteStore } from "@/lib/village/remoteStore";
 import { createOnlineStore } from "@/lib/village/onlineStore";
 import { buildObstacles } from "@/lib/village/collision";
-import { spawnPoint } from "@/lib/village/liveProtocol";
+import { PROGRESS_POLL_LIVE_MS, PROGRESS_POLL_MS, spawnPoint } from "@/lib/village/liveProtocol";
 import { useLiveWalk } from "@/lib/village/useLiveWalk";
-import { ghostNames, startGhosts } from "@/lib/dummy/ghosts";
+import { ghostId, ghostNames, startGhosts } from "@/lib/dummy/ghosts";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import type { Notice } from "@/lib/auth/next";
 import { NameTagLayer, RemoteNameTagLayer, type NameTagData } from "./NameTag";
@@ -22,6 +22,10 @@ import { approachPoint, type Spot } from "@/lib/village/proximity";
 import { TopBar } from "./hud/TopBar";
 import { BottomBar } from "./hud/BottomBar";
 import { DevLevelBar } from "./hud/DevLevelBar";
+import { LevelUpCard } from "./hud/LevelUpCard";
+import { GaugePanel } from "./hud/GaugePanel";
+import { blinkStage } from "./reveal";
+import { isReached } from "@/lib/decor/gauge";
 import { FpsMeter } from "./hud/FpsMeter";
 import { MenuSheet } from "./hud/MenuSheet";
 import { VillageListPanel } from "@/components/villages/VillageListPanel";
@@ -59,7 +63,7 @@ import type { LetterError } from "@/lib/letters/errors";
 import { computeDecorLevel, progressPercent, requiredCount } from "@/lib/decor/progress";
 import { loadDraft, saveDraft, type LetterDraft } from "@/lib/letters/drafts";
 import { DEFAULT_PAPER } from "@/lib/letters/papers";
-import { DEFAULT_PARTS, loadCharacterParts, saveCharacterParts } from "@/lib/character/parts";
+import { DEFAULT_PARTS, loadCharacterParts, partsFromSeed, saveCharacterParts } from "@/lib/character/parts";
 import type { CharacterParts } from "@/types/domain";
 import { MAX_DECOR_LEVEL } from "@/lib/decor/decorTable";
 import { getMessages, type Locale } from "@/i18n/messages";
@@ -100,6 +104,8 @@ type OverlayState =
   | { kind: "customize" }
   | { kind: "nickname" }
   | { kind: "menu" }
+  // 진행률 게이지 (F008): 단계별 장식 목록. 달성한 줄을 누르면 마을에서 그 장식이 깜빡임
+  | { kind: "gauge" }
   // 마을 목록 (F017): 내가 들어간 마을들을 보고 다른 마을로 이동
   | { kind: "villages" }
   | { kind: "howto" };
@@ -155,6 +161,21 @@ export default function VillageView({ id, options, village: realVillage, level, 
   // (닉네임은 마을을 만들 때·초대받아 들어올 때 이미 정했습니다. 여기서는 메뉴에서 바꿀 때만 창이 뜹니다)
   const [overlay, setOverlay] = useState<OverlayState>(options.customize ? { kind: "customize" } : null);
   const closeOverlay = useCallback(() => setOverlay(null), []);
+  // 장식 단계가 올라간 순간: "몇 % 달성, 새 장식은 무엇"을 알려 주는 카드를 띄웁니다 (처음 들어왔을 때·내려갈 때는 띄우지 않음)
+  // 💡 화면을 그리는 도중에 이전 값과 비교해 상태를 맞추는 방법입니다 (React가 권하는 방식)
+  const [seenDecorLevel, setSeenDecorLevel] = useState(decorLevel);
+  const [levelUp, setLevelUp] = useState<{ id: number; level: number } | null>(null);
+  if (decorLevel !== seenDecorLevel) {
+    setSeenDecorLevel(decorLevel);
+    setLevelUp(decorLevel > seenDecorLevel ? { id: (levelUp?.id ?? 0) + 1, level: decorLevel } : null);
+  }
+  const clearLevelUp = useCallback(() => setLevelUp(null), []);
+  // 진행률 게이지 (F008): 알약을 누르면 화면 아래에 장식 길이 뜨고(다시 누르면 닫힘), 달성한 그림을 누르면 마을에서 그 장식이 깜빡입니다
+  const toggleGauge = useCallback(() => setOverlay((prev) => (prev?.kind === "gauge" ? null : { kind: "gauge" })), []);
+  const pickGaugeStage = (stage: number) => {
+    // 띠를 열어 둔 사이 진행률이 내려갔을 수 있으므로, 누른 순간에 다시 확인합니다. 화면(카메라)은 움직이지 않습니다 [확정 11.24]
+    if (isReached(decorLevel, stage)) blinkStage(stage);
+  };
   // 안내(notice)를 받고 들어왔으면 처음부터 그 문구를 띄워 둡니다
   const [toast, setToast] = useState<ToastMessage | null>(
     notice === "not_resident" ? { id: 0, text: t.notResidentNotice } : null,
@@ -239,6 +260,15 @@ export default function VillageView({ id, options, village: realVillage, level, 
     const names: Record<string, string> = options.ghosts > 0 ? ghostNames(options.ghosts) : {};
     for (const r of village.residents) if (!r.isMe) names[r.id] = r.name;
     return names;
+  }, [village.residents, options.ghosts]);
+
+  // 다른 주민 캐릭터의 꾸미기 값 (주민 id → 값). 꾸민 적 없는 주민은 넣지 않습니다(기본 모습으로 그려짐).
+  // 가짜 주민은 서로 다른 옷을 입혀 여러 모습을 한눈에 볼 수 있게 합니다
+  const remoteParts = useMemo(() => {
+    const map: Record<string, CharacterParts> = {};
+    for (let i = 0; i < options.ghosts; i++) map[ghostId(i)] = partsFromSeed(ghostId(i));
+    for (const r of village.residents) if (!r.isMe && r.characterParts) map[r.id] = r.characterParts;
+    return map;
   }, [village.residents, options.ghosts]);
 
   // 3D 모델 파일을 받는 중인지 (drei가 다운로드 진행 상황을 알려 줍니다)
@@ -347,9 +377,13 @@ export default function VillageView({ id, options, village: realVillage, level, 
   // 편지를 쓰거나 지운 뒤: 진행 숫자를 다시 읽어 진행률·장식을 맞춥니다 (그 사이 다른 주민이 쓴 편지도 함께 반영됨)
   const router = useRouter();
   const shownResidentCount = village.residents.length;
+  // 다시 읽기를 부른 순번. 여러 번 겹쳐 불렸을 때 "가장 나중에 부른 것"의 답만 씁니다
+  // (먼저 부른 것의 답이 늦게 도착해서, 방금 올라간 트리가 옛 숫자로 되돌아가는 일을 막습니다)
+  const progressCall = useRef(0);
   const refreshProgress = useCallback(async () => {
+    const call = ++progressCall.current;
     const next = await fetchProgress(village.id);
-    if (!next) return;
+    if (!next || call !== progressCall.current) return;
     setDoneCount(next.doneCount);
     setLiveResidentCount(next.residentCount);
     setLiveCapacity(next.capacity);
@@ -359,7 +393,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
   // 함께 걷기의 실시간 연결: 진짜 마을이고 기능이 켜져 있을 때만 엽니다 (lib/village/useLiveWalk.ts)
   // 화면이 모르는 주민(방금 입주한 사람)의 소식이 오면 진행 숫자를 다시 읽어 새 집을 그립니다
   const residentIds = useMemo(() => village.residents.map((r) => r.id), [village.residents]);
-  useLiveWalk({
+  const live = useLiveWalk({
     enabled: Boolean(liveWalk && realVillage && myId),
     villageId: village.id,
     myId,
@@ -369,6 +403,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
     remoteStore,
     onlineStore,
     onUnknownResident: refreshProgress,
+    // 다른 주민이 편지를 쓰거나 지웠다는 알림이 오면 진행 숫자를 다시 읽어 트리를 바로 바꿉니다
+    onProgressChanged: refreshProgress,
   });
   // 다른 앱을 보다가 돌아왔을 때도 진행 숫자를 다시 읽습니다 (그 사이 친구가 쓴 편지·새 주민을 반영)
   const isRealVillage = realVillage !== undefined;
@@ -380,6 +416,25 @@ export default function VillageView({ id, options, village: realVillage, level, 
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [isRealVillage, refreshProgress]);
+  // 화면을 보고 있는 동안에는 정해진 간격으로도 진행 숫자를 다시 읽습니다 (11.28 사용자 요청: 새로고침 없이 트리가 바뀌게)
+  // 💡 알림 방송(위의 onProgressChanged)이 오면 바로 바뀌지만, 함께 걷기가 꺼져 있거나 연결이 끊긴 때에는 방송이 오지 않습니다.
+  //    그때에도 반영되도록 두는 안전망입니다. 숫자가 그대로면 화면은 다시 그려지지 않습니다.
+  useEffect(() => {
+    if (!isRealVillage) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      // 실시간 통로가 이어져 있으면 느리게(30초), 아니면 자주(10초) 확인합니다
+      timer = setTimeout(
+        () => {
+          if (document.visibilityState === "visible" && navigator.onLine !== false) void refreshProgress();
+          schedule();
+        },
+        live.isConnected() ? PROGRESS_POLL_LIVE_MS : PROGRESS_POLL_MS,
+      );
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, [isRealVillage, refreshProgress, live]);
   // 저장이 거절됐을 때의 안내
   // action: 무엇을 하다 실패했는지 ("save" = 쓰기·고치기, "delete" = 지우기) → 안내 문구가 달라집니다
   const showLetterError = useCallback(
@@ -536,6 +591,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
       if (result.ok) {
         done(putSentLetter(sentLetters, result.letter));
         void refreshProgress();
+        // 새 편지면 편지 수가 늘었으므로, 접속해 있는 다른 주민에게 알려 그 화면의 트리도 바로 바뀌게 합니다 (고치기는 수가 그대로라 알리지 않음)
+        if (!writeExisting?.id) live.announceProgress();
         return;
       }
       // 실패: 쓰던 글은 임시 저장에 남아 있으므로 창만 닫고 이유를 알려 줍니다
@@ -570,6 +627,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
       if (result.ok || result.reason === "not_found") {
         updateSentLetters(removeLetter(sentLetters, recipientId));
         void refreshProgress();
+        live.announceProgress();
         showToast(t.letterDeleted);
       } else {
         showLetterError(result.reason, "delete");
@@ -616,7 +674,8 @@ export default function VillageView({ id, options, village: realVillage, level, 
           level={decorLevel}
           walkStore={walkStore}
           remoteStore={remoteStore}
-          remoteClassic={options.classic}
+          playerParts={characterParts}
+          remoteParts={remoteParts}
           playerStart={playerStart}
           // 편지 쓰기 큰 창(화면의 93%)이 열려 있는 동안에는 뒤의 3D를 멈춥니다
           paused={overlay?.kind === "write" && locked}
@@ -658,6 +717,7 @@ export default function VillageView({ id, options, village: realVillage, level, 
             ddayCaption={dday.isDDay ? undefined : t.untilChristmas}
             percent={percent}
             progressAria={t.progressAria}
+            onOpenGauge={toggleGauge}
             night={SKY_THEMES[sky].lightText}
           />
           {/* ?dev면 단계 슬라이더 (초대 카드는 없앴습니다 → 초대는 메뉴에서, 아래 메뉴 버튼 위의 말풍선이 알려 줍니다) */}
@@ -665,6 +725,18 @@ export default function VillageView({ id, options, village: realVillage, level, 
             {options.dev && (
               <DevLevelBar level={decorLevel} max={MAX_DECOR_LEVEL} label={t.devLevel} onChange={setDevLevel} />
             )}
+            {/* 단계가 올라간 순간의 안내 카드 */}
+            <LevelUpCard
+              data={
+                levelUp && {
+                  id: levelUp.id,
+                  title: t.decorLevelUpTitle.replace("{n}", String(levelUp.level * 10)),
+                  label: t.decorNewLabel,
+                  names: t.decorNames[levelUp.level - 1] ?? "",
+                }
+              }
+              onDone={clearLevelUp}
+            />
             {/* 개발용: ?fps=1 이면 초당 장면 수 표시 */}
             {options.fps && <FpsMeter note={options.ghosts > 0 ? `ghosts ${options.ghosts}` : undefined} />}
           </div>
@@ -733,6 +805,18 @@ export default function VillageView({ id, options, village: realVillage, level, 
           />
         )}
       </Overlay>
+      {/* 진행률 게이지 (F008) */}
+      {/* 큰 창(Overlay)이 아니라 화면 아래의 얇은 띠라서, 마을이 그대로 보이고 누를 수도 있습니다 */}
+      {overlay?.kind === "gauge" && (
+        <GaugePanel
+          level={decorLevel}
+          percent={percent}
+          names={t.decorNames}
+          labels={{ title: t.gaugeTitle, hint: t.gaugeHint, locked: t.gaugeLocked, close: t.close }}
+          onPick={pickGaugeStage}
+          onClose={closeOverlay}
+        />
+      )}
       <Overlay open={overlay?.kind === "customize"} onClose={closeOverlay} title={t.customize}>
         <CharacterEditor
           initial={characterParts}
