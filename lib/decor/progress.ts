@@ -2,7 +2,9 @@
 // 근거: docs/prd.md 핵심 규칙, 가정 1·2·3·4·27, 로드맵 D-03·D-10 [확정 11.25]
 //
 // 핵심 규칙
-// - 친구 마을: 써야 할 편지 = 주민 수 × (주민 수 - 1)
+// - 친구 마을: 써야 할 편지 = N × (N - 1), N = "정원"과 "실제 주민 수" 중 큰 쪽 [확정 11.28]
+//   (정원 = 마을을 만들 때 정한 목표 인원. 친구가 다 모이기 전에도 정원 기준으로 계산해서,
+//    2명일 때 편지 한 통에 50%가 차 버리는 일을 막습니다)
 // - 커플 마을: 써야 할 개수 = 10 (질문지 8개 + 편지 2통). 주민이 2명일 때만 계산
 // - 장식 단계 = 내림(쓴 개수 × 10 ÷ 써야 할 개수), 최대 10
 // - 장식은 "언제나 지금 진행률"을 따릅니다. 친구가 새로 들어오거나 편지가 삭제되면
@@ -19,16 +21,20 @@ import { COUPLE_TOTAL_ITEMS, MAX_DECOR_LEVEL } from "./decorTable";
  * 마을에서 써야 하는 개수(100% 기준)를 구합니다.
  * @param kind 마을 종류
  * @param residentCount 주민 수
+ * @param capacity 정원(목표 인원). 모르면 0 → 주민 수만으로 계산합니다. 커플 마을에서는 쓰지 않습니다
  * @returns 써야 할 개수. 계산할 수 없으면(주민이 혼자 등) 0
+ * ⚠️ 데이터베이스 쪽 짝: supabase/migrations의 09 파일 private.decor_level. 규칙을 바꿀 때 함께 고칩니다.
  */
-export function requiredCount(kind: VillageKind, residentCount: number): number {
+export function requiredCount(kind: VillageKind, residentCount: number, capacity: number = 0): number {
   if (kind === "couple") {
     // 커플 마을은 둘이 다 있어야 시작합니다 (혼자면 0%)
     return residentCount === 2 ? COUPLE_TOTAL_ITEMS : 0;
   }
-  // 친구 마을: 혼자면 쓸 상대가 없으므로 0 (PRD 가정 4)
-  if (residentCount < 2) return 0;
-  return residentCount * (residentCount - 1);
+  // 친구 마을: 정원과 실제 주민 수 중 큰 쪽이 기준 인원입니다 (정원보다 많이 들어오면 실제 인원 기준)
+  const n = Math.max(toCount(residentCount), toCount(capacity));
+  // 혼자면 쓸 상대가 없으므로 0 (PRD 가정 4)
+  if (n < 2) return 0;
+  return n * (n - 1);
 }
 
 /** 음수·소수 같은 잘못된 값이 들어와도 계산이 깨지지 않게 0 이상의 정수로 맞춥니다 */

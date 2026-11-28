@@ -28,6 +28,42 @@ describe("써야 할 개수", () => {
   });
 });
 
+describe("[11.28 확정] 정원: 기준 인원은 정원과 주민 수 중 큰 쪽", () => {
+  it("정원 5명에 주민이 2명뿐이어도 써야 할 편지는 20통 (한 통 = 5%)", () => {
+    const required = requiredCount("friends", 2, 5);
+    expect(required).toBe(20);
+    expect(progressPercent(1, required)).toBe(5);
+    expect(computeDecorLevel(1, required)).toBe(0);
+    // 두 사람이 서로 다 써도(2통) 10% → 1단계. 친구가 모이기 전에 장식을 다 봐 버리지 않습니다
+    expect(progressPercent(2, required)).toBe(10);
+    expect(computeDecorLevel(2, required)).toBe(1);
+  });
+
+  it("정원이 다 차면 주민 수로 계산한 값과 같다", () => {
+    expect(requiredCount("friends", 5, 5)).toBe(requiredCount("friends", 5));
+  });
+
+  it("정원보다 많이 들어오면 실제 주민 수 기준 (정원 5명에 6명 → 30통)", () => {
+    expect(requiredCount("friends", 6, 5)).toBe(30);
+  });
+
+  it("정원을 모르면(0·잘못된 값) 주민 수만으로 계산한다", () => {
+    expect(requiredCount("friends", 3, 0)).toBe(6);
+    expect(requiredCount("friends", 3, Number.NaN)).toBe(6);
+    expect(requiredCount("friends", 3, -4)).toBe(6);
+  });
+
+  it("혼자여도 정원이 있으면 써야 할 편지가 정해진다 (정원 5명·주민 1명 → 20통, 0%)", () => {
+    expect(requiredCount("friends", 1, 5)).toBe(20);
+    expect(progressPercent(0, requiredCount("friends", 1, 5))).toBe(0);
+  });
+
+  it("커플 마을은 정원과 상관없이 2명일 때 10개", () => {
+    expect(requiredCount("couple", 2, 30)).toBe(10);
+    expect(requiredCount("couple", 1, 2)).toBe(0);
+  });
+});
+
 describe("친구 마을 장식 단계", () => {
   it("주민이 1명이면 0% (써야 할 편지가 없음)", () => {
     expect(requiredCount("friends", 1)).toBe(0);
