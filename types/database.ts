@@ -270,6 +270,7 @@ export type Database = {
       }
       villages: {
         Row: {
+          capacity: number
           created_at: string
           created_by: string
           id: string
@@ -281,6 +282,7 @@ export type Database = {
           star_attached_at: string | null
         }
         Insert: {
+          capacity: number
           created_at?: string
           created_by: string
           id?: string
@@ -292,6 +294,7 @@ export type Database = {
           star_attached_at?: string | null
         }
         Update: {
+          capacity?: number
           created_at?: string
           created_by?: string
           id?: string
@@ -318,8 +321,9 @@ export type Database = {
     }
     Functions: {
       create_village: {
-        Args: { p_kind: string; p_name: string }
+        Args: { p_capacity?: number; p_kind: string; p_name: string }
         Returns: {
+          capacity: number
           created_at: string
           created_by: string
           id: string
@@ -344,6 +348,7 @@ export type Database = {
       my_villages: {
         Args: never
         Returns: {
+          capacity: number
           done_count: number
           id: string
           joined_at: string
@@ -370,6 +375,7 @@ export type Database = {
       village_progress: {
         Args: { p_village: string }
         Returns: {
+          capacity: number
           done_count: number
           resident_count: number
         }[]
